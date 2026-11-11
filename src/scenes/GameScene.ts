@@ -25,7 +25,7 @@ import { COLOR, SIZE, robotColor } from '../ui/theme';
 import { TopBar } from '../ui/topBar';
 import type { Speed } from '../ui/topBar';
 import { TelemetryPanel } from '../ui/telemetryPanel';
-import { bottleneckSpot } from '../ui/telemetryModel';
+import { bottleneckHintKey, bottleneckSpot } from '../ui/telemetryModel';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setText, txt } from '../ui/widgets';
@@ -99,7 +99,11 @@ export class GameScene extends Phaser.Scene {
   private tutBg!: Phaser.GameObjects.Image;
   private tutArrow!: Phaser.GameObjects.Image;
   private telemetryOpen = false;
-  private telemetry!: TelemetryPanel;
+  /** Панель телеметрии создаётся при первом Tab: так вход в уровень быстрее на слабом ноутбуке. */
+  private telemetry: TelemetryPanel | null = null;
+  /** Последний снимок настоящего мира: во время показа верхняя полоса показывает его, а не часы копии. */
+  private realSnap: SimSnapshot | null = null;
+  private tutFrame!: Phaser.GameObjects.Graphics;
   private fps!: Phaser.GameObjects.Text;
   private frames = new FrameStats();
   private fpsAt = 0;
@@ -177,10 +181,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
     this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, FIELD.y + 64, DEPTH.toast);
-    this.telemetry = new TelemetryPanel(this, (robotId) => {
-      this.setView({ kind: 'robot', robotId });
-      audio.play('click');
-    });
+    this.telemetry = null;
+    this.realSnap = null;
 
     this.ghost = this.add.container(0, 0).setDepth(DEPTH.marker).setVisible(false);
 
@@ -190,8 +192,10 @@ export class GameScene extends Phaser.Scene {
     this.tutBg = this.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
     const tutLabel = txt(this, 16, 14, t('tutorial.label'), { size: SIZE.micro, color: COLOR.dim, caps: true });
     this.tutCard = this.add.container(FIELD.x + 16, 0, [this.tutBg, tutLabel, this.tutText]).setDepth(DEPTH.marker).setVisible(false);
-    // Стрелка выше панелей: она показывает и на кнопки «Готово», «Копия» и «Старт».
+    // Стрелка показывает клетку на карте; кнопку («Готово», «Копия», «Старт») обучение обводит рамкой —
+    // стрелка над кнопкой налезала бы на соседнюю.
     this.tutArrow = this.add.image(0, 0, 'tut_arrow').setDisplaySize(30, 36).setDepth(DEPTH.uiTop).setVisible(false);
+    this.tutFrame = this.add.graphics().setDepth(DEPTH.uiTop).setVisible(false);
 
     this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
 
@@ -236,8 +240,10 @@ export class GameScene extends Phaser.Scene {
     const extra = this.pendingLoop(s, selectedRobot);
     this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
     this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined });
-    this.telemetry.update(s, selectedRobot);
-    this.top.update(s, this.speed);
+    this.telemetry?.update(s, selectedRobot);
+    const teaching = s.mode === 'teach';
+    if (!teaching) this.realSnap = s;
+    this.top.update(teaching && this.realSnap ? this.realSnap : s, this.speed, teaching);
     this.panel.update(s, { view: this.view, pick: this.pick, code: this.code });
     this.bottom.update(s, this.buyType);
     const teach = s.mode === 'teach';
@@ -286,7 +292,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const w = this.worldPoint(p);
-    if (!this.onField(w.x, w.y) || this.telemetry.covers(w.y)) return;
+    if (!this.onField(w.x, w.y) || this.telemetry?.covers(w.y)) return;
     const s = this.snap;
     if (s.mode === 'teach' || s.mode === 'won' || s.mode === 'lost') return;
     const cell = this.field.cellAt(w.x, w.y);
@@ -419,7 +425,13 @@ export class GameScene extends Phaser.Scene {
 
   private setTelemetry(open: boolean): void {
     this.telemetryOpen = open;
-    this.telemetry.setOpen(open);
+    if (open && !this.telemetry) {
+      this.telemetry = new TelemetryPanel(this, (robotId) => {
+        this.setView({ kind: 'robot', robotId });
+        audio.play('click');
+      });
+    }
+    this.telemetry?.setOpen(open);
   }
 
   private fail(reason: FailReason): void {
@@ -441,6 +453,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.toggleBuy(null);
+    // Во время показа нужна вся карта: панель телеметрии закрываем.
+    this.setTelemetry(false);
     this.setView({ kind: 'teach' });
     audio.play('click');
   }
@@ -708,7 +722,7 @@ export class GameScene extends Phaser.Scene {
       misses: s.misses,
       launches: s.launches,
       best,
-      bottleneck: s.bottleneck?.reason ?? null,
+      bottleneckKey: s.bottleneck ? bottleneckHintKey(s.bottleneck, this.level, s) : null,
       offerHint,
     };
     audio.play(won ? 'win' : 'lose');
@@ -732,6 +746,7 @@ export class GameScene extends Phaser.Scene {
     this.tutCard.setVisible(show);
     if (!show || !step) {
       this.tutArrow.setVisible(false);
+      this.tutFrame.setVisible(false);
       return;
     }
     if (this.tutText.text !== t(step.key)) {
@@ -743,14 +758,21 @@ export class GameScene extends Phaser.Scene {
     }
     const target = this.tutorial.target(ctx);
     let at: { x: number; y: number } | null = null;
+    let box: { x: number; y: number; w: number; h: number } | null = null;
     if (target?.kind === 'cell') {
       const c = this.field.screenCenter(target.x, target.y);
       at = { x: c.x, y: c.y - 44 };
     } else if (target?.kind === 'ui') {
-      if (target.id === 'start') at = this.bottom.anchor();
-      else if (target.id === 'finish' || target.id === 'copy') at = this.panel.anchor(target.id);
+      if (target.id === 'start') box = this.bottom.anchor();
+      else if (target.id === 'finish' || target.id === 'copy') box = this.panel.anchor(target.id);
     }
     this.tutArrow.setVisible(at !== null);
     if (at) this.tutArrow.setPosition(at.x, at.y - 18 + Math.sin(this.time.now / 180) * 5);
+    // Рамка вокруг нужной кнопки: светлая, мягко пульсирует, на соседние кнопки не залезает.
+    this.tutFrame.setVisible(box !== null);
+    if (box) {
+      const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(this.time.now / 220));
+      this.tutFrame.clear().lineStyle(2, COLOR.text, pulse).strokeRoundedRect(box.x - box.w / 2 - 3, box.y - box.h / 2 - 3, box.w + 6, box.h + 6, 6);
+    }
   }
 }

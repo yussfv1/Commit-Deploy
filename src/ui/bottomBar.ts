@@ -5,7 +5,7 @@ import { iconKey } from '../render/textures';
 import type { LevelData, MachineType, SimSnapshot } from '../types';
 import { clock, num, t } from './i18n';
 import { machineCost } from './levels';
-import { barRects, longestCycle, pace, robotBars, telemetrySignature } from './telemetryModel';
+import { barRects, bottleneckHintKey, longestCycle, pace, robotBars, telemetrySignature } from './telemetryModel';
 import { COLOR, SIZE, STATE_COLOR, robotColor } from './theme';
 import { Button, rule, setColor, setText, txt } from './widgets';
 
@@ -78,8 +78,10 @@ export class BottomBar {
     this.mini = scene.add.graphics().setDepth(d);
   }
 
-  anchor(): { x: number; y: number } | null {
-    return this.start.root.visible ? { x: this.start.x, y: this.start.y - 30 } : null;
+  /** Центр и размер кнопки СТАРТ, которую подсвечивает обучение. */
+  anchor(): { x: number; y: number; w: number; h: number } | null {
+    const b = this.start;
+    return b.root.visible ? { x: b.x, y: b.y, w: b.w, h: b.h } : null;
   }
 
   update(s: SimSnapshot, buyType: MachineType | null): void {
@@ -105,7 +107,8 @@ export class BottomBar {
       setText(this.label, t('bottom.paceLabel').toLocaleUpperCase('ru'));
       setText(this.value, p === 'none' ? t('bottom.paceNone') : t('bottom.pace', { now: num(s.throughput), need: num(s.requiredRate) }));
       setColor(this.value, p === 'behind' ? COLOR.miss : p === 'ok' ? COLOR.ok : COLOR.dim);
-      setText(this.hint, s.bottleneck ? t(`bottleneck.${s.bottleneck.reason}`) : '');
+      // Совет подбирается под уровень: не предлагаем купить то, чего здесь не купить.
+      setText(this.hint, s.bottleneck ? t(bottleneckHintKey(s.bottleneck, this.level, s)) : '');
       setColor(this.hint, COLOR.warn);
     }
     this.drawMini(s);

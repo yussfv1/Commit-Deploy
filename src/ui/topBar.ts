@@ -18,7 +18,10 @@ export interface TopBarHandlers {
 const MID = TOP_H / 2;
 
 export class TopBar {
+  private readonly clockLabel: Phaser.GameObjects.Text;
   private readonly clockText: Phaser.GameObjects.Text;
+  private readonly labelText: string;
+  private rehearsal = false;
   private readonly plan: Phaser.GameObjects.Text;
   private readonly energy: Phaser.GameObjects.Text;
   private readonly misses: Phaser.GameObjects.Text;
@@ -33,7 +36,8 @@ export class TopBar {
 
     // Обратный отсчёт — главный прибор: крупно, слева.
     // Подпись и цифры подняты, чтобы у крупного отсчёта был воздух до нижней линии полосы.
-    txt(scene, 24, 8, t(endless ? 'hud.nextLaunch' : 'hud.countdown'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+    this.labelText = t(endless ? 'hud.nextLaunch' : 'hud.countdown');
+    this.clockLabel = txt(scene, 24, 8, this.labelText, { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
     this.clockText = txt(scene, 24, 22, '', { size: SIZE.title + 2, bold: true }).setDepth(d);
     txt(scene, 168, MID, levelTitle, { size: SIZE.small, color: COLOR.dim, oy: 0.5 }).setDepth(d);
 
@@ -65,15 +69,26 @@ export class TopBar {
     new Button(scene, W - 40, MID, { w: 40, h: 32, label: '', icon: iconKey('gear'), iconSize: 22, iconTint: true, depth: d, onClick: handlers.pause });
   }
 
-  update(s: SimSnapshot, speed: Speed): void {
+  /**
+   * s — снимок НАСТОЯЩЕГО мира. Во время показа сюда приходит последний снимок до показа (rehearsal = true):
+   * часы и план замирают и гаснут, подпись говорит, что мир на паузе, — время копии мира игроку не показываем.
+   */
+  update(s: SimSnapshot, speed: Speed, rehearsal = false): void {
+    if (rehearsal !== this.rehearsal) {
+      this.rehearsal = rehearsal;
+      setText(this.clockLabel, (rehearsal ? t('hud.paused') : this.labelText).toLocaleUpperCase('ru'));
+      setColor(this.clockLabel, rehearsal ? COLOR.teach : COLOR.faint);
+    }
+    const value = rehearsal ? COLOR.dim : COLOR.text;
     setText(this.clockText, this.endless ? clock(s.timeLeft) : `T−${clock(s.timeLeft)}`);
     // Последние 20 секунд отсчёт красный — без мигания, чтобы не дёргать глаз.
-    setColor(this.clockText, s.mode === 'running' && s.timeLeft <= 20 && s.delivered < s.target ? COLOR.miss : COLOR.text);
+    setColor(this.clockText, !rehearsal && s.mode === 'running' && s.timeLeft <= 20 && s.delivered < s.target ? COLOR.miss : value);
     setText(this.plan, `${s.delivered} / ${s.target}`);
-    setColor(this.plan, s.delivered >= s.target ? COLOR.ok : COLOR.text);
+    setColor(this.plan, s.delivered >= s.target ? COLOR.ok : value);
     setText(this.energy, `${s.energyLeft} / ${s.energy}`);
+    setColor(this.energy, value);
     setText(this.misses, String(s.misses));
-    setColor(this.misses, s.misses > 0 ? COLOR.miss : COLOR.text);
+    setColor(this.misses, s.misses > 0 ? COLOR.miss : value);
     this.speeds.forEach((b, i) => b.setActive(SPEEDS[i] === speed));
   }
 }

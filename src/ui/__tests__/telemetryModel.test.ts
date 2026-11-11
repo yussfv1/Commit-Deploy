@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../sim';
 import { EXAMPLE_DEFS, EXAMPLE_LEVELS } from '../../sim/examples';
 import type { Block, RobotView, SimSnapshot } from '../../types';
-import { barRects, bottleneckSpot, longestCycle, lostSeconds, machineLoads, pace, robotBars, telemetrySignature } from '../telemetryModel';
+import { barRects, bottleneckHintKey, bottleneckSpot, longestCycle, lostSeconds, machineLoads, pace, robotBars, telemetrySignature } from '../telemetryModel';
 
 const robot = (over: Partial<RobotView>): RobotView => ({
   id: 1,
@@ -119,5 +119,28 @@ describe('полосы в пикселях и загрузка машин', () =
     expect(telemetrySignature(a, loads)).toBe(telemetrySignature(robotBars([robot({ id: 1, timeline: [{ state: 'move', from: 0, to: 20 }] })]), loads));
     expect(telemetrySignature(a, loads)).not.toBe(telemetrySignature(b, loads));
     expect(telemetrySignature(a, loads)).not.toBe(telemetrySignature(a, [{ id: 1, type: 'press', load: 0.6 }]));
+  });
+});
+
+describe('подсказка к узкому месту не противоречит уровню', () => {
+  const machines = [{ id: 3, type: 'press', x: 5, y: 1 }] as unknown as SimSnapshot['machines'];
+  const rich = { machines, energyLeft: 9, robotCost: 3 };
+  const shop = { buildable: ['shelf', 'press'] as const, allowedOps: ['up', 'take', 'put', 'sense'] as const };
+  const bare = { buildable: [] as const, allowedOps: ['up', 'take', 'put'] as const };
+
+  it('на уровне с покупками и датчиком советует купить, поставить полку и датчик', () => {
+    const lvl = { buildable: [...shop.buildable], allowedOps: [...shop.allowedOps] };
+    expect(bottleneckHintKey({ kind: 'machine', id: 3, reason: 'saturated' }, lvl, rich)).toBe('bottleneck.saturated');
+    expect(bottleneckHintKey({ kind: 'machine', id: 3, reason: 'blocked' }, lvl, rich)).toBe('bottleneck.blocked');
+    expect(bottleneckHintKey({ kind: 'robot', id: 1, reason: 'misses' }, lvl, rich)).toBe('bottleneck.misses');
+    expect(bottleneckHintKey({ kind: 'robot', id: 1, reason: 'slowLoop' }, lvl, rich)).toBe('bottleneck.slowLoop');
+  });
+
+  it('на уровне без покупок и датчика (уровень 2) не советует невозможного', () => {
+    const lvl = { buildable: [...bare.buildable], allowedOps: [...bare.allowedOps] };
+    expect(bottleneckHintKey({ kind: 'machine', id: 3, reason: 'saturated' }, lvl, rich)).toBe('bottleneck.saturatedNoBuy');
+    expect(bottleneckHintKey({ kind: 'machine', id: 3, reason: 'blocked' }, lvl, rich)).toBe('bottleneck.blockedNoShelf');
+    expect(bottleneckHintKey({ kind: 'robot', id: 1, reason: 'misses' }, lvl, rich)).toBe('bottleneck.missesNoSensor');
+    expect(bottleneckHintKey({ kind: 'robot', id: 1, reason: 'slowLoop' }, lvl, { ...rich, energyLeft: 1 })).toBe('bottleneck.slowLoopNoEnergy');
   });
 });
