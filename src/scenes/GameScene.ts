@@ -12,6 +12,7 @@ import { iconKey, tileKey } from '../render/textures';
 import { audio, stepRate } from '../ui/audio';
 import type { SfxName } from '../ui/audio';
 import { BottomBar } from '../ui/bottomBar';
+import { hints } from '../ui/hints';
 import { t } from '../ui/i18n';
 import { levelById, levelIndex, levels, machineDefs } from '../ui/levels';
 import { changeWait, programSteps, removeBlock, toggleSense } from '../ui/programModel';
@@ -646,6 +647,10 @@ export class GameScene extends Phaser.Scene {
     const best = passed
       ? store.saveResult(this.level.id, { stars: won ? s.stars : 0, timeLeft: s.timeLeft, energySpent: spent, misses: s.misses, launches: s.launches })
       : false;
+    // Третье поражение подряд на этом уровне — итоги предложат подсказку.
+    let offerHint = false;
+    if (passed) hints.won(this.level.id);
+    else offerHint = hints.lost(this.level.id);
     const data: ResultsData = {
       levelId: this.level.id,
       won,
@@ -664,6 +669,7 @@ export class GameScene extends Phaser.Scene {
       launches: s.launches,
       best,
       bottleneck: s.bottleneck?.reason ?? null,
+      offerHint,
     };
     audio.play(won ? 'win' : 'lose');
     this.scene.launch('Results', data);

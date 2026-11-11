@@ -3,7 +3,8 @@ import Phaser from 'phaser';
 import { DEPTH, H, W } from '../render/layout';
 import { iconKey } from '../render/textures';
 import type { BottleneckReason } from '../types';
-import { clock, t } from '../ui/i18n';
+import { hintKey } from '../ui/hints';
+import { clock, i18n, t } from '../ui/i18n';
 import { levelById, levelIndex, nextLevel } from '../ui/levels';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, dimmer, plate, rule, txt } from '../ui/widgets';
@@ -29,17 +30,27 @@ export interface ResultsData {
   /** Новый лучший результат. */
   best: boolean;
   bottleneck: BottleneckReason | null;
+  /** Третье поражение подряд — спросить «Вам нужна подсказка?». */
+  offerHint?: boolean;
 }
 
 const PANEL_W = 600;
 const PAD = 32;
+const HINT_W = 520;
 
 export class ResultsScene extends Phaser.Scene {
+  /** Всё, что лежит в окне подсказки: его убирают целиком при закрытии. */
+  private modal: { destroy(): void }[] = [];
+  /** Пока открыто окно подсказки, клавиши достаются ему, а не итогам. */
+  private modalKey: ((ev: KeyboardEvent) => void) | null = null;
+
   constructor() {
     super('Results');
   }
 
   create(r: ResultsData): void {
+    this.modal = [];
+    this.modalKey = null;
     enter(this, false);
     this.scene.bringToTop();
     const d = DEPTH.modal;
@@ -111,10 +122,84 @@ export class ResultsScene extends Phaser.Scene {
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;
+      if (this.modalKey) {
+        this.modalKey(ev);
+        return;
+      }
       if (ev.code === 'Enter' || ev.code === 'NumpadEnter') (next ? toNext : retry)();
       else if (ev.code === 'KeyR') retry();
       else if (ev.code === 'Escape') toLevels();
     });
+
+    if (r.offerHint && !r.won) this.askHint(levelIndex(r.levelId), d + 10);
+  }
+
+  // ---------- подсказка после трёх поражений ----------
+
+  /** Окно «Вам нужна подсказка?» поверх итогов. «Да» — показать, как пройти уровень, «Нет» — закрыть. */
+  private askHint(index: number, depth: number): void {
+    const body = txt(this, 0, 0, t('hint.askText'), { size: SIZE.body, color: COLOR.dim, wrap: HINT_W - PAD * 2 });
+    const yes = (): void => this.showHint(index, depth);
+    const no = (): void => this.closeHint();
+    this.hintWindow(depth, t('hint.ask'), body, [
+      { label: t('hint.yes'), hint: 'Enter', primary: true, onClick: yes },
+      { label: t('hint.no'), hint: 'Esc', primary: false, onClick: no },
+    ]);
+    this.modalKey = (ev) => {
+      if (ev.code === 'Enter' || ev.code === 'NumpadEnter') yes();
+      else if (ev.code === 'Escape') no();
+    };
+  }
+
+  private showHint(index: number, depth: number): void {
+    this.closeHint();
+    const key = hintKey(index);
+    const body = txt(this, 0, 0, i18n.has(key) ? t(key) : t('hint.generic'), { size: SIZE.body, color: COLOR.text, wrap: HINT_W - PAD * 2, lineSpacing: 4 });
+    const ok = (): void => this.closeHint();
+    this.hintWindow(depth, t('hint.title'), body, [{ label: t('hint.ok'), hint: 'Enter', primary: true, onClick: ok }]);
+    this.modalKey = (ev) => {
+      if (ev.code === 'Enter' || ev.code === 'NumpadEnter' || ev.code === 'Escape') ok();
+    };
+  }
+
+  /** Окно по центру: заголовок, текст и кнопки справа внизу. Высота подстраивается под текст. */
+  private hintWindow(
+    depth: number,
+    title: string,
+    body: Phaser.GameObjects.Text,
+    buttons: { label: string; hint: string; primary: boolean; onClick: () => void }[],
+  ): void {
+    const h = PAD + 34 + body.height + 28 + 44 + PAD;
+    const top = Math.round(H / 2 - h / 2);
+    const left = W / 2 - HINT_W / 2;
+    const shade = dimmer(this, depth, 0.6);
+    const panel = plate(this, W / 2, H / 2, HINT_W, h, { fill: COLOR.chrome, stroke: COLOR.warn, strokeAlpha: 0.6 }).setDepth(depth + 1);
+    const head = txt(this, left + PAD, top + PAD, title, { size: SIZE.title, bold: true, color: COLOR.warn }).setDepth(depth + 2);
+    body.setPosition(left + PAD, top + PAD + 34).setDepth(depth + 2);
+    this.modal.push(shade, panel, head, body);
+    let bx = left + HINT_W - PAD;
+    const by = top + h - PAD - 22;
+    for (const b of buttons) {
+      const bw = b.primary ? 210 : 180;
+      const btn = new Button(this, bx - bw / 2, by, {
+        w: bw,
+        h: 44,
+        label: b.label,
+        kind: b.primary ? 'primary' : 'quiet',
+        size: SIZE.body,
+        hint: b.hint,
+        depth: depth + 2,
+        onClick: b.onClick,
+      });
+      this.modal.push(btn);
+      bx -= bw + 12;
+    }
+  }
+
+  private closeHint(): void {
+    for (const o of this.modal) o.destroy();
+    this.modal = [];
+    this.modalKey = null;
   }
 
   /** Лампа условия: зелёная — выполнено, серая — нет. */
