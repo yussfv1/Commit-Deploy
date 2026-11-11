@@ -5,8 +5,8 @@ import { iconKey } from '../render/textures';
 import type { LevelData, MachineType, SimSnapshot } from '../types';
 import { clock, num, t } from './i18n';
 import { machineCost } from './levels';
-import { pace } from './telemetryModel';
-import { COLOR, SIZE } from './theme';
+import { barRects, longestCycle, pace, robotBars, telemetrySignature } from './telemetryModel';
+import { COLOR, SIZE, STATE_COLOR, robotColor } from './theme';
 import { Button, rule, setColor, setText, txt } from './widgets';
 
 export interface BottomHandlers {
@@ -16,6 +16,9 @@ export interface BottomHandlers {
 
 const Y = BOTTOM.y;
 const START_W = 200;
+/** Где начинаются мини-полосы кругов роботов. Слева от них — темп линии и подсказка. */
+const MINI_X = 368;
+const MINI_ROWS = 8;
 
 export class BottomBar {
   private readonly level: LevelData;
@@ -24,6 +27,11 @@ export class BottomBar {
   private readonly hint: Phaser.GameObjects.Text;
   private readonly start: Button;
   private readonly shop: { type: MachineType; button: Button; cost: number }[];
+  private readonly mini: Phaser.GameObjects.Graphics;
+  private readonly miniLabel: Phaser.GameObjects.Text;
+  private readonly miniKey: Phaser.GameObjects.Text;
+  private readonly miniW: number;
+  private miniSig = '';
 
   constructor(scene: Phaser.Scene, level: LevelData, handlers: BottomHandlers) {
     this.level = level;
@@ -32,7 +40,7 @@ export class BottomBar {
     rule(scene, 0, Y, W).setDepth(d);
     this.label = txt(scene, 24, Y + 18, '', { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
     this.value = txt(scene, 24, Y + 36, '', { size: SIZE.body }).setDepth(d);
-    this.hint = txt(scene, 24, Y + 60, '', { size: SIZE.small, color: COLOR.warn }).setDepth(d);
+    this.hint = txt(scene, 24, Y + 58, '', { size: SIZE.small, color: COLOR.warn, wrap: MINI_X - 48 }).setDepth(d);
 
     this.start = new Button(scene, W - 24 - START_W / 2, Y + BOTTOM.h / 2, {
       w: START_W,
@@ -61,6 +69,12 @@ export class BottomBar {
       x -= 8;
       return { type, button, cost };
     });
+
+    // Мини-полосы кругов роботов: та же телеметрия, что по Tab, только коротко.
+    this.miniW = Math.max(120, Math.min(360, x - 24 - MINI_X));
+    this.miniLabel = txt(scene, MINI_X, Y + 18, t('telemetry.loops'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+    this.miniKey = txt(scene, MINI_X + this.miniW, Y + 18, t('telemetry.show'), { size: SIZE.micro, color: COLOR.faint, ox: 1 }).setDepth(d);
+    this.mini = scene.add.graphics().setDepth(d);
   }
 
   anchor(): { x: number; y: number } | null {
@@ -93,6 +107,7 @@ export class BottomBar {
       setText(this.hint, s.bottleneck ? t(`bottleneck.${s.bottleneck.reason}`) : '');
       setColor(this.hint, COLOR.warn);
     }
+    this.drawMini(s);
     const plan = s.mode === 'plan';
     this.start.setVisible(plan).setEnabled(s.robots.length > 0);
     for (const b of this.shop) {
@@ -100,5 +115,37 @@ export class BottomBar {
       b.button.setEnabled(s.energyLeft >= b.cost || buyType === b.type);
       b.button.setActive(buyType === b.type);
     }
+  }
+
+  private drawMini(s: SimSnapshot): void {
+    const show = s.mode === 'running' && s.robots.length > 0;
+    this.miniLabel.setVisible(show);
+    this.miniKey.setVisible(show);
+    if (!show) {
+      if (this.miniSig !== '') this.mini.clear();
+      this.miniSig = '';
+      return;
+    }
+    const bars = robotBars(s.robots.slice(0, MINI_ROWS));
+    const sig = telemetrySignature(bars, []);
+    if (sig === this.miniSig) return;
+    this.miniSig = sig;
+    const g = this.mini;
+    g.clear();
+    const longest = longestCycle(bars);
+    const scale = longest > 0 ? (this.miniW - 12) / longest : 0;
+    const pitch = Math.min(8, Math.floor(48 / Math.max(1, bars.length)));
+    bars.forEach((bar, i) => {
+      const y = Y + 36 + i * pitch;
+      const h = Math.max(3, pitch - 2);
+      g.fillStyle(robotColor(bar.colorIndex), 1);
+      g.fillRect(MINI_X, y, 6, h);
+      g.fillStyle(COLOR.sunken, 1);
+      g.fillRect(MINI_X + 12, y, this.miniW - 12, h);
+      for (const r of barRects(bar.parts, scale)) {
+        g.fillStyle(STATE_COLOR[r.state], 1);
+        g.fillRect(MINI_X + 12 + r.x, y, r.w, h);
+      }
+    });
   }
 }

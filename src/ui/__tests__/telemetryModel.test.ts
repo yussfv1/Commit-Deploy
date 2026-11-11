@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../sim';
 import { EXAMPLE_DEFS, EXAMPLE_LEVELS } from '../../sim/examples';
 import type { Block, RobotView, SimSnapshot } from '../../types';
-import { bottleneckSpot, longestCycle, lostSeconds, pace, robotBars } from '../telemetryModel';
+import { barRects, bottleneckSpot, longestCycle, lostSeconds, machineLoads, pace, robotBars, telemetrySignature } from '../telemetryModel';
 
 const robot = (over: Partial<RobotView>): RobotView => ({
   id: 1,
@@ -80,5 +80,44 @@ describe('узкое место на карте', () => {
     expect(bars).toHaveLength(1);
     expect(bars[0].total).toBeGreaterThan(0);
     expect(bars[0].cycleTime).toBeGreaterThan(0);
+  });
+});
+
+describe('полосы в пикселях и загрузка машин', () => {
+  it('отрезки круга переводятся в пиксели, пустые пропускаются, короткие видны', () => {
+    const rects = barRects(
+      [
+        { state: 'move', from: 0, to: 10 },
+        { state: 'sense', from: 10, to: 10 },
+        { state: 'miss', from: 10, to: 11 },
+      ],
+      0.5,
+    );
+    expect(rects).toEqual([
+      { x: 0, w: 5, state: 'move' },
+      { x: 5, w: 1, state: 'miss' },
+    ]);
+  });
+
+  it('в загрузке только обработчики и источники, доля зажата в 0..1', () => {
+    const machines = [
+      { id: 1, type: 'press', kind: 'processor', utilization: 0.92 },
+      { id: 2, type: 'pad', kind: 'sink', utilization: 0 },
+      { id: 3, type: 'depot', kind: 'source', utilization: 1.2 },
+      { id: 4, type: 'shelf', kind: 'storage', utilization: 0 },
+    ] as unknown as SimSnapshot['machines'];
+    expect(machineLoads(machines)).toEqual([
+      { id: 1, type: 'press', load: 0.92 },
+      { id: 3, type: 'depot', load: 1 },
+    ]);
+  });
+
+  it('подпись меняется вместе с данными и не меняется без них', () => {
+    const a = robotBars([robot({ id: 1, timeline: [{ state: 'move', from: 0, to: 20 }] })]);
+    const b = robotBars([robot({ id: 1, timeline: [{ state: 'move', from: 0, to: 24 }] })]);
+    const loads = [{ id: 1, type: 'press' as const, load: 0.5 }];
+    expect(telemetrySignature(a, loads)).toBe(telemetrySignature(robotBars([robot({ id: 1, timeline: [{ state: 'move', from: 0, to: 20 }] })]), loads));
+    expect(telemetrySignature(a, loads)).not.toBe(telemetrySignature(b, loads));
+    expect(telemetrySignature(a, loads)).not.toBe(telemetrySignature(a, [{ id: 1, type: 'press', load: 0.6 }]));
   });
 });

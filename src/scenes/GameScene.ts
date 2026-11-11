@@ -21,6 +21,8 @@ import { store } from '../ui/storage';
 import { COLOR, SIZE, robotColor } from '../ui/theme';
 import { TopBar } from '../ui/topBar';
 import type { Speed } from '../ui/topBar';
+import { TelemetryPanel } from '../ui/telemetryPanel';
+import { bottleneckSpot } from '../ui/telemetryModel';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setText, txt } from '../ui/widgets';
@@ -92,6 +94,7 @@ export class GameScene extends Phaser.Scene {
   private tutBg!: Phaser.GameObjects.Image;
   private tutArrow!: Phaser.GameObjects.Image;
   private telemetryOpen = false;
+  private telemetry!: TelemetryPanel;
   private fps!: Phaser.GameObjects.Text;
   private ending: 'none' | 'launch' | 'done' = 'none';
   private stars = 0;
@@ -165,6 +168,10 @@ export class GameScene extends Phaser.Scene {
     });
     this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
     this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, FIELD.y + 64, DEPTH.toast);
+    this.telemetry = new TelemetryPanel(this, (robotId) => {
+      this.setView({ kind: 'robot', robotId });
+      audio.play('click');
+    });
 
     this.ghost = this.add.container(0, 0).setDepth(DEPTH.marker).setVisible(false);
 
@@ -201,7 +208,9 @@ export class GameScene extends Phaser.Scene {
     const selectedRobot = this.view.kind === 'robot' ? this.view.robotId : null;
     const selectedMachine = this.view.kind === 'machine' ? this.view.machineId : null;
     const extra = this.pendingLoop(s, selectedRobot);
+    this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
     this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined });
+    this.telemetry.update(s, selectedRobot);
     this.top.update(s, this.speed);
     this.panel.update(s, { view: this.view, pick: this.pick, code: this.code });
     this.bottom.update(s, this.buyType);
@@ -247,7 +256,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const w = this.worldPoint(p);
-    if (!this.onField(w.x, w.y)) return;
+    if (!this.onField(w.x, w.y) || this.telemetry.covers(w.y)) return;
     const s = this.snap;
     if (s.mode === 'teach' || s.mode === 'won' || s.mode === 'lost') return;
     const cell = this.field.cellAt(w.x, w.y);
@@ -352,7 +361,8 @@ export class GameScene extends Phaser.Scene {
         break;
       case 'Tab':
         ev.preventDefault();
-        this.telemetryOpen = !this.telemetryOpen;
+        this.setTelemetry(!this.telemetryOpen);
+        audio.play('click');
         break;
       case 'KeyF':
         this.fps.setVisible(!this.fps.visible);
@@ -364,6 +374,11 @@ export class GameScene extends Phaser.Scene {
       default:
         break;
     }
+  }
+
+  private setTelemetry(open: boolean): void {
+    this.telemetryOpen = open;
+    this.telemetry.setOpen(open);
   }
 
   private fail(reason: FailReason): void {
@@ -588,6 +603,7 @@ export class GameScene extends Phaser.Scene {
     if (this.ending !== 'none') return;
     this.ending = 'launch';
     this.view = { kind: 'idle' };
+    this.setTelemetry(false);
     const c = { x: FIELD.x + FIELD.w / 2, y: FIELD.y + FIELD.h / 2 };
     this.countdown = txt(this, c.x, c.y, '3', { size: 120, bold: true, ox: 0.5, oy: 0.5 }).setDepth(DEPTH.modal);
     let n = 3;

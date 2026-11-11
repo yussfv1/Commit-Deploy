@@ -1,7 +1,7 @@
 // Данные для панели телеметрии: полоса последнего круга каждого робота, темп линии и узкое место.
 // Всё считает симуляция (RobotView.timeline, throughput, bottleneck) — здесь только раскладка для экрана.
 import { TICKS_PER_SECOND } from '../types';
-import type { BottleneckReason, RobotView, SimSnapshot, TimelineSegment } from '../types';
+import type { BottleneckReason, MachineType, MachineView, RobotState, RobotView, SimSnapshot, TimelineSegment } from '../types';
 
 export interface RobotBar {
   robotId: number;
@@ -63,4 +63,38 @@ export function bottleneckSpot(snap: Pick<SimSnapshot, 'bottleneck' | 'robots' |
   }
   const r = snap.robots.find((x) => x.id === b.id);
   return r ? { ...b, x: Math.round(r.x), y: Math.round(r.y) } : null;
+}
+
+export interface BarRect {
+  x: number;
+  w: number;
+  state: RobotState;
+}
+
+/** Отрезки круга в пиксели. Масштаб общий для всех роботов, поэтому разница в такте видна глазом. */
+export function barRects(parts: readonly TimelineSegment[], pxPerTick: number): BarRect[] {
+  return parts
+    .filter((p) => p.to > p.from)
+    .map((p) => ({ x: p.from * pxPerTick, w: Math.max(1, (p.to - p.from) * pxPerTick), state: p.state }));
+}
+
+export interface MachineLoad {
+  id: number;
+  type: MachineType;
+  /** Доля времени в работе за последние 30 секунд, 0..1. */
+  load: number;
+}
+
+/** Загрузка машин, которые могут оказаться узким местом: обработчиков и источников. */
+export function machineLoads(machines: readonly MachineView[]): MachineLoad[] {
+  return machines
+    .filter((m) => m.kind === 'processor' || m.kind === 'source')
+    .map((m) => ({ id: m.id, type: m.type, load: Math.min(1, Math.max(0, m.utilization)) }));
+}
+
+/** Меняется только вместе с данными полос: панель перерисовывается по ней, а не каждый кадр. */
+export function telemetrySignature(bars: readonly RobotBar[], loads: readonly MachineLoad[]): string {
+  const robots = bars.map((b) => `${b.robotId}:${b.total}:${b.misses}:${b.parts.map((p) => p.state[0] + p.to).join('')}`);
+  const machines = loads.map((m) => `${m.id}:${Math.round(m.load * 100)}`);
+  return `${robots.join('|')}#${machines.join('|')}`;
 }

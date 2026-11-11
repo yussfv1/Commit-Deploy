@@ -44,6 +44,13 @@ interface RobotSprite {
   seen: boolean;
 }
 
+export interface BottleneckMark {
+  kind: 'robot' | 'machine';
+  id: number;
+  x: number;
+  y: number;
+}
+
 export interface FieldRenderOpts {
   /** Выбранный робот: его петля ярче, по ней бегут точки. */
   selectedRobot?: number | null;
@@ -76,6 +83,9 @@ export class FieldView {
   private opT = 1;
   private teachCells: [number, number][] = [];
   private lastSnap: SimSnapshot | null = null;
+  private readonly bnFrame: Phaser.GameObjects.Image;
+  private readonly bnRing: Phaser.GameObjects.Arc;
+  private bottleneck: BottleneckMark | null = null;
 
   /** x, y — где на экране левый верхний угол уровня; scale — масштаб карты. */
   constructor(scene: Phaser.Scene, level: LevelData, x: number, y: number, scale = 1) {
@@ -91,6 +101,10 @@ export class FieldView {
     this.fxLayer = scene.add.container(0, 0);
     this.root.add([this.dockLayer, this.machineLayer, this.robotLayer, this.fxLayer]);
     this.fx = new Fx(scene, this.fxLayer);
+    // Узкое место: пульсирующая рамка вокруг машины или кольцо вокруг робота.
+    this.bnFrame = scene.add.image(0, 0, 'cell_frame').setDisplaySize(70, 70).setTint(COLOR.warn).setVisible(false);
+    this.bnRing = scene.add.circle(0, 0, 22).setStrokeStyle(2, COLOR.warn).setVisible(false);
+    this.fxLayer.add([this.bnFrame, this.bnRing]);
     this.drawFloor();
     level.docks.forEach((d) => {
       const c = this.center(d.x, d.y);
@@ -138,6 +152,7 @@ export class FieldView {
     this.syncOperator(snap.operator, dt);
     this.syncDocks(snap);
     this.syncLoops(snap, opts);
+    this.syncBottleneck();
     this.loops.update(dt);
     this.rocket?.update(dt);
   }
@@ -184,6 +199,11 @@ export class FieldView {
     }
   }
 
+  /** Что тормозит линию (null — ничего): рамка пульсирует, пока узкое место не уйдёт. */
+  markBottleneck(mark: BottleneckMark | null): void {
+    this.bottleneck = mark;
+  }
+
   /** Взлёт ракеты в конце уровня. */
   launchRocket(onDone: () => void): void {
     if (this.rocket) this.rocket.launch(onDone);
@@ -192,6 +212,20 @@ export class FieldView {
 
   skipLaunch(): void {
     this.rocket?.finishNow();
+  }
+
+  private syncBottleneck(): void {
+    const b = this.bottleneck;
+    const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((this.scene.time.now / 1000) * Math.PI * 1.6));
+    const machine = b?.kind === 'machine';
+    this.bnFrame.setVisible(machine);
+    if (b && machine) {
+      const c = this.center(b.x, b.y);
+      this.bnFrame.setPosition(c.x, c.y).setAlpha(pulse);
+    }
+    const robot = b?.kind === 'robot' ? this.robots.get(b.id) : undefined;
+    this.bnRing.setVisible(!!robot);
+    if (robot) this.bnRing.setPosition(robot.root.x, robot.root.y).setAlpha(pulse);
   }
 
   // ---------- пол ----------

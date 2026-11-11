@@ -240,5 +240,17 @@
   "tutorial.start": "Нажми «Старт». Робот будет повторять твой показ по кругу.",
   "tutorial.waitPress": "Пресс ещё работает. Подожди Пробелом, пока загорится жёлтая лампа.",
   "tutorial.sensor": "Робот промахнулся. Выбери его, выдели «взять» и нажми «Датчик».",
-  "tutorial.telemetry": "Нажми Tab, чтобы открыть телеметрию и найти узкое место."
+  "tutorial.telemetry": "Нажми Tab, чтобы открыть телеметрию и найти узкое место.",
+
+  "telemetry.title": "Телеметрия",
+  "telemetry.subtitle": "последний круг каждого робота",
+  "telemetry.hide": "Tab — скрыть",
+  "telemetry.show": "Tab — подробнее",
+  "telemetry.loops": "Круги роботов",
+  "telemetry.robot": "Робот {n}",
+  "telemetry.stats": "круг {time} с · полезно {useful} % · промахов {misses}",
+  "telemetry.noLoop": "ещё не прошёл круг",
+  "telemetry.empty": "Роботов пока нет. Нажми на док с плюсом и покажи работу.",
+  "telemetry.machines": "Загрузка машин за 30 с",
+  "telemetry.machine": "{name} {n} %"
 }
