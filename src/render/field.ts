@@ -170,16 +170,16 @@ export class FieldView {
           this.fx.burst(c.x, c.y - 10, COLOR.warn, 12);
           this.fx.float(c.x, c.y - 30, '+1', COLOR.text);
           break;
+        // Выпуск предмета показывает лампа машины, а взять/положить — сам робот с грузом.
+        // Отдельные вспышки на каждое такое событие при 4 роботах и скорости ×4 сливались в рябь,
+        // поэтому эффекты оставлены только для редких и важных событий: доставка, промах, покупка, новый робот.
         case 'produced':
-          this.fx.ring(c.x, c.y, e.item ? ITEM_COLOR[e.item] : COLOR.text);
+        case 'took':
+        case 'put':
           break;
         case 'miss':
           this.fx.miss(c.x, c.y);
           this.flashMiss(e.robotId);
-          break;
-        case 'took':
-        case 'put':
-          if (e.item) this.fx.burst(c.x, c.y, ITEM_COLOR[e.item], 4);
           break;
         case 'deployed':
           this.fx.ring(c.x, c.y, this.colorOf(e.robotId));

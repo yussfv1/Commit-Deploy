@@ -32,18 +32,29 @@ describe('масштаб отрисовки', () => {
 
   it('растёт вместе с окном и плотностью пикселей', () => {
     expect(computeScale(1920, 1)).toBe(1.5);
-    expect(computeScale(1333, 1.25)).toBe(1.3);
+    expect(computeScale(1366, 1)).toBe(1366 / 1280);
+  });
+
+  it('ширина холста совпадает с настоящими пикселями экрана — браузер ничего не растягивает', () => {
+    // Ноутбук 1366 × 768 и экран 1333 CSS-пикселей при масштабе Windows 125 %.
+    expect(computeScale(1366, 1) * 1280).toBe(1366);
+    expect(Math.round(computeScale(1333, 1.25) * 1280)).toBe(1666);
+    for (let w = 640; w <= 2560; w += 7) {
+      const px = computeScale(w, 1) * 1280;
+      expect(Math.abs(px - Math.round(px)), `ширина ${w}`).toBeLessThan(1e-9);
+    }
   });
 
   it('верхнюю границу можно опустить, если компьютер не тянет', () => {
     expect(computeScale(1920, 1, 1.25)).toBe(1.25);
     expect(computeScale(1280, 1, 1.25)).toBe(1);
-    expect(computeScale(1920, 1, 0.5)).toBe(0.75);
+    expect(computeScale(1920, 1, 0.25)).toBe(0.5);
   });
 
   it('ограничен сверху и снизу', () => {
     expect(computeScale(3840, 2)).toBe(2);
-    expect(computeScale(640, 1)).toBe(0.75);
-    expect(computeScale(0, 1)).toBe(0.75);
+    expect(computeScale(640, 1)).toBe(0.5);
+    expect(computeScale(320, 1)).toBe(0.5);
+    expect(computeScale(0, 1)).toBe(0.5);
   });
 });
