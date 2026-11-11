@@ -1,0 +1,26 @@
+{
+  "name": "t-minus",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "T-MINUS «Покажи один раз» — 2D-игра про автоматизацию (GAMBIT Hackathon 2026, трек AUTOMATE IT!)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
+  }
+}

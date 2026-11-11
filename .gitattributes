@@ -1,0 +1,20 @@
+# Единые окончания строк (LF) на всех компьютерах команды.
+* text=auto eol=lf
+
+# Бинарные файлы — не трогать.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.mp4 binary
+*.pdf binary
+*.zip binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
