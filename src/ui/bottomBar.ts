@@ -38,9 +38,10 @@ export class BottomBar {
     const d = DEPTH.ui;
     scene.add.rectangle(0, Y, W, BOTTOM.h, COLOR.chrome).setOrigin(0, 0).setDepth(d);
     rule(scene, 0, Y, W).setDepth(d);
-    this.label = txt(scene, 24, Y + 18, '', { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
-    this.value = txt(scene, 24, Y + 36, '', { size: SIZE.body }).setDepth(d);
-    this.hint = txt(scene, 24, Y + 58, '', { size: SIZE.small, color: COLOR.warn, wrap: MINI_X - 48 }).setDepth(d);
+    // Три строки подняты к верху полосы: даже если подсказка займёт две строки, она не уйдёт за нижний край.
+    this.label = txt(scene, 24, Y + 12, '', { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+    this.value = txt(scene, 24, Y + 28, '', { size: SIZE.body }).setDepth(d);
+    this.hint = txt(scene, 24, Y + 50, '', { size: SIZE.small, color: COLOR.warn, wrap: MINI_X - 48 }).setDepth(d);
 
     this.start = new Button(scene, W - 24 - START_W / 2, Y + BOTTOM.h / 2, {
       w: START_W,
@@ -72,8 +73,8 @@ export class BottomBar {
 
     // Мини-полосы кругов роботов: та же телеметрия, что по Tab, только коротко.
     this.miniW = Math.max(120, Math.min(360, x - 24 - MINI_X));
-    this.miniLabel = txt(scene, MINI_X, Y + 18, t('telemetry.loops'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
-    this.miniKey = txt(scene, MINI_X + this.miniW, Y + 18, t('telemetry.show'), { size: SIZE.micro, color: COLOR.faint, ox: 1 }).setDepth(d);
+    this.miniLabel = txt(scene, MINI_X, Y + 12, t('telemetry.loops'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+    this.miniKey = txt(scene, MINI_X + this.miniW, Y + 12, t('telemetry.show'), { size: SIZE.micro, color: COLOR.faint, ox: 1 }).setDepth(d);
     this.mini = scene.add.graphics().setDepth(d);
   }
 
@@ -136,7 +137,7 @@ export class BottomBar {
     const scale = longest > 0 ? (this.miniW - 12) / longest : 0;
     const pitch = Math.min(8, Math.floor(48 / Math.max(1, bars.length)));
     bars.forEach((bar, i) => {
-      const y = Y + 36 + i * pitch;
+      const y = Y + 32 + i * pitch;
       const h = Math.max(3, pitch - 2);
       g.fillStyle(robotColor(bar.colorIndex), 1);
       g.fillRect(MINI_X, y, 6, h);

@@ -135,7 +135,6 @@ export class SettingsScene extends Phaser.Scene {
       label: t('settings.back'),
       kind: 'primary',
       size: SIZE.body,
-      hint: 'Esc',
       depth: d + 2,
       onClick: () => this.close(),
     });

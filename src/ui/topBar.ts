@@ -32,15 +32,16 @@ export class TopBar {
     rule(scene, 0, TOP_H - 1, W).setDepth(d);
 
     // Обратный отсчёт — главный прибор: крупно, слева.
-    txt(scene, 24, 13, t(endless ? 'hud.nextLaunch' : 'hud.countdown'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
-    this.clockText = txt(scene, 24, 27, '', { size: SIZE.title + 4, bold: true }).setDepth(d);
+    // Подпись и цифры подняты, чтобы у крупного отсчёта был воздух до нижней линии полосы.
+    txt(scene, 24, 8, t(endless ? 'hud.nextLaunch' : 'hud.countdown'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+    this.clockText = txt(scene, 24, 22, '', { size: SIZE.title + 2, bold: true }).setDepth(d);
     txt(scene, 168, MID, levelTitle, { size: SIZE.small, color: COLOR.dim, oy: 0.5 }).setDepth(d);
 
     let x = 470;
     const gauge = (label: string, texture: string): Phaser.GameObjects.Text => {
       scene.add.image(x, MID, texture).setDisplaySize(22, 22).setDepth(d);
-      txt(scene, x + 18, 13, label, { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
-      const value = txt(scene, x + 18, 27, '', { size: SIZE.body, bold: true }).setDepth(d);
+      txt(scene, x + 18, 9, label, { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d);
+      const value = txt(scene, x + 18, 25, '', { size: SIZE.body, bold: true }).setDepth(d);
       x += 132;
       return value;
     };
@@ -60,8 +61,8 @@ export class TopBar {
           onClick: () => handlers.speed(s),
         }),
     );
-    // Пауза — квадратная кнопка с шестерёнкой: так её узнают сразу, как в других играх. Клавиша Esc работает как раньше.
-    new Button(scene, W - 40, MID, { w: 40, h: 32, label: '', icon: iconKey('gear'), iconSize: 22, depth: d, onClick: handlers.pause });
+    // Пауза — квадратная кнопка с шестерёнкой: так её узнают сразу, как в других играх. Esc открывает её с клавиатуры.
+    new Button(scene, W - 40, MID, { w: 40, h: 32, label: '', icon: iconKey('gear'), iconSize: 22, iconTint: true, depth: d, onClick: handlers.pause });
   }
 
   update(s: SimSnapshot, speed: Speed): void {

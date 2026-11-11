@@ -52,7 +52,6 @@ export class CreditsScene extends Phaser.Scene {
       label: t('credits.back'),
       kind: 'quiet',
       size: SIZE.small,
-      hint: 'Esc',
       alignLeft: true,
       onClick: () => go(this, 'Menu'),
     });

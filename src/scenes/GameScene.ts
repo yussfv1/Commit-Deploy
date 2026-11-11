@@ -317,6 +317,13 @@ export class GameScene extends Phaser.Scene {
 
   private onKey(ev: KeyboardEvent): void {
     if (!this.ready) return;
+    // Горячие клавиши работают в игре всегда — и в плане, и во время показа, и пока идёт отсчёт:
+    // R — уровень заново, M — к выбору уровней (Esc — меню паузы, ниже).
+    if (!ev.repeat && (ev.code === 'KeyR' || ev.code === 'KeyM')) {
+      if (this.snap.mode === 'teach') this.sim.cancelTeach();
+      go(this, ev.code === 'KeyR' ? 'Game' : 'LevelSelect', { levelId: this.level.id });
+      return;
+    }
     if (this.ending !== 'none') {
       if (ev.code === 'Enter' || ev.code === 'Space' || ev.code === 'Escape') this.skipEnding();
       return;
@@ -334,15 +341,19 @@ export class GameScene extends Phaser.Scene {
         this.lastRepeat = this.time.now;
         this.teach(input);
       } else if (ev.code === 'Enter' || ev.code === 'NumpadEnter') this.finishTeach();
-      else if (ev.code === 'Escape') this.cancelTeach();
+      // Esc и во время показа открывает меню паузы. Запись при этом сохраняется: «Продолжить» — и показ идёт дальше.
+      // Отменить показ можно кнопкой «Отменить показ» на панели.
+      else if (ev.code === 'Escape') this.openPause();
       return;
     }
     if (ev.repeat) return;
     switch (ev.code) {
       case 'Escape':
+        // Esc всегда сразу открывает паузу (шестерёнку). Выбор робота и режим покупки при этом снимаются,
+        // чтобы после «Продолжить» игрок вернулся к чистому полю.
         if (this.buyType) this.toggleBuy(null);
-        else if (this.view.kind !== 'idle') this.setView({ kind: 'idle' });
-        else this.openPause();
+        if (this.view.kind !== 'idle') this.setView({ kind: 'idle' });
+        this.openPause();
         break;
       case 'Space':
         ev.preventDefault();

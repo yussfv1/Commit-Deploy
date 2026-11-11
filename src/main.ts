@@ -17,7 +17,9 @@ const game = new Phaser.Game({
   parent: 'game',
   backgroundColor: css(COLOR.page),
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: W, height: H },
-  render: { antialias: true, powerPreference: 'high-performance' },
+  // roundPixels: каждая картинка и надпись встаёт на целый пиксель экрана. Без этого текст с центровкой
+  // попадал между пикселями, видеокарта смешивала соседние — и буквы мылились.
+  render: { antialias: true, roundPixels: true, powerPreference: 'high-performance' },
   // Звук игра делает сама через Web Audio (src/ui/audio.ts), встроенный звук Phaser не нужен.
   audio: { noAudio: true },
   disableContextMenu: true,
