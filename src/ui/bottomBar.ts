@@ -102,6 +102,12 @@ export class BottomBar {
       setColor(this.value, COLOR.text);
       setText(this.hint, s.robots.length === 0 ? t('bottom.noRobots') : '');
       setColor(this.hint, COLOR.dim);
+    } else if (s.mode === 'won' || s.mode === 'lost') {
+      // Уровень закончился: вместо темпа — итог, пока идёт взлёт ракеты или открыты итоги.
+      setText(this.label, t('bottom.doneLabel').toLocaleUpperCase('ru'));
+      setText(this.value, t(s.mode === 'won' ? 'bottom.won' : 'bottom.lost'));
+      setColor(this.value, s.mode === 'won' ? COLOR.ok : COLOR.miss);
+      setText(this.hint, '');
     } else {
       const p = pace(s);
       setText(this.label, t('bottom.paceLabel').toLocaleUpperCase('ru'));
