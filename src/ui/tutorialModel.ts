@@ -9,14 +9,14 @@
 //   tutorial.finish         нажми «Готово»
 //   tutorial.copy           сделай копию робота со сдвигом (кнопка на панели робота)
 //   tutorial.start          нажми СТАРТ
-//   tutorial.waitPress      подсказка в репетиции: дождись пресса (Пробел)
+//   tutorial.waitPress      в репетиции у работающего пресса с пустыми руками: дождись готовой пластины (Пробел)
 //   tutorial.sensor         после первого промаха: поставь ДАТЧИК
 //   tutorial.telemetry      открой телеметрию (Tab)
 //   любой другой ключ       простая подсказка, пропадает после старта
 //
 // Перед последней частью можно ставить что угодно: tutorial.l2.waitPress тоже сработает.
 import { DIR_DX, DIR_DY } from '../types';
-import type { LevelData, MachineType, SimSnapshot } from '../types';
+import type { ItemType, LevelData, MachineType, SimSnapshot } from '../types';
 
 export type StepKind =
   | 'clickDock'
@@ -61,6 +61,8 @@ const SIMPLE: readonly StepKind[] = [
   'telemetry',
 ];
 const MACHINES: readonly MachineType[] = ['depot', 'tank', 'press', 'assembler', 'pad', 'shelf'];
+/** То, что выдают обработчики: за этим и ждут у пресса или сборщика. */
+const PROCESSED: readonly ItemType[] = ['plate', 'cell'];
 /** Шаги, которые имеют смысл только внутри репетиции. */
 const IN_TEACH: readonly StepKind[] = ['goTo', 'take', 'put', 'returnDock', 'finish'];
 /** Шаги, которым нужен хотя бы один робот или идущая репетиция. */
@@ -112,7 +114,8 @@ function done(step: Step, ctx: TutorialCtx): boolean {
     case 'start':
       return started(s);
     case 'waitPress':
-      return s.delivered > 0;
+      // Пройден, как только игрок дождался и взял пластину (или ячейку) — не нужно ждать доставки.
+      return started(s) || s.delivered > 0 || (s.operator !== null && PROCESSED.includes(s.operator.carrying as ItemType));
     case 'sensor':
       return s.robots.some((r) => r.program.some((b) => b.op === 'sense'));
     case 'telemetry':
@@ -164,7 +167,12 @@ export class TutorialFlow {
     const s = ctx.snap;
     if (step.kind === 'sensor') return s.misses > 0;
     if (step.kind === 'telemetry') return s.mode === 'running' && s.tick >= 200;
-    if (step.kind === 'waitPress') return s.mode === 'teach';
+    if (step.kind === 'waitPress') {
+      // Только когда ждать действительно нужно: стоишь у работающего пресса с пустыми руками и не ты его загрузил.
+      const m = frontMachine(ctx);
+      const last = s.recording[s.recording.length - 1];
+      return s.mode === 'teach' && s.operator?.carrying === null && m?.kind === 'processor' && m.state === 'working' && last?.op !== 'put';
+    }
     return true;
   }
 
@@ -178,8 +186,9 @@ export class TutorialFlow {
       case 'clickDock':
         return cellOf(ctx.level.docks[freeDock(ctx)]);
       case 'goTo':
+        return cellOf(s.machines.find((m) => m.type === step.machine));
       case 'waitPress':
-        return cellOf(s.machines.find((m) => m.type === (step.machine ?? 'press')));
+        return cellOf(frontMachine(ctx) ?? s.machines.find((m) => m.type === 'press'));
       case 'take':
       case 'put':
         return cellOf(frontMachine(ctx));

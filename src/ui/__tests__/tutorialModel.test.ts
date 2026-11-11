@@ -3,6 +3,7 @@ import { Simulation } from '../../sim';
 import { EXAMPLE_DEFS } from '../../sim/examples';
 import type { Block, LevelData, Result } from '../../types';
 import { TutorialFlow, parseStep } from '../tutorialModel';
+import { levels, machineDefs } from '../levels';
 
 const KEYS = [
   'tutorial.clickDock',
@@ -186,5 +187,47 @@ describe('подсказки по ситуации', () => {
     const { flow, ctx } = setup({ tutorial: ['tutorial.telemetry'] });
     flow.update({ ...ctx(), telemetryOpen: true });
     expect(flow.current()).toBeNull();
+  });
+});
+
+describe('подсказка «подожди пресс» (уровень 2)', () => {
+  const lv = levels()[1];
+  const make = () => {
+    const sim = new Simulation();
+    sim.loadLevel(lv, machineDefs());
+    const flow = new TutorialFlow(['tutorial.waitPress', 'tutorial.copy']);
+    const ctx = () => ({ snap: sim.snapshot(), level: lv, canFinish: sim.canFinishTeach(), telemetryOpen: false });
+    const step = () => {
+      flow.update(ctx());
+      return { kind: flow.current()?.kind ?? null, visible: flow.visible(ctx()) };
+    };
+    const press = (keys: string) => {
+      const map = { U: 'up', D: 'down', L: 'left', R: 'right', T: 'act', W: 'wait' } as const;
+      for (const k of keys) {
+        const r = sim.teachInput(map[k as keyof typeof map]);
+        if (!r.ok) throw new Error(`Шаг ${k} отклонён: ${r.reason}`);
+      }
+    };
+    return { sim, step, press };
+  };
+
+  it('не мешает тому, кто загружает пресс, и видна, пока ждёшь у работающего пресса', () => {
+    const { sim, step, press } = make();
+    expect(sim.beginTeach(0).ok).toBe(true);
+    press('LTRRRRUT');
+    expect(step()).toEqual({ kind: 'waitPress', visible: false });
+    press('W');
+    expect(step()).toEqual({ kind: 'waitPress', visible: true });
+  });
+
+  it('уходит, как только пластину взяли, и дальше идёт «сделай копию»', () => {
+    const { sim, step, press } = make();
+    sim.beginTeach(0);
+    press('LTRRRRUT');
+    // Ждём, пока пресс сделает пластину (2 с = 8 шагов), потом берём её.
+    for (let i = 0; i < 12 && sim.snapshot().machines.find((m) => m.type === 'press')?.state !== 'ready'; i++) press('W');
+    press('T');
+    expect(sim.snapshot().operator?.carrying).toBe('plate');
+    expect(step().kind).toBe('copy');
   });
 });
