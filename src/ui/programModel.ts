@@ -94,14 +94,19 @@ const LETTER: Record<string, Op> = { U: 'up', R: 'right', D: 'down', L: 'left', 
 
 /**
  * Короткая запись готовой программы (для живой линии в меню и стресс-проверки), как в тестах симуляции:
- * L2 — два шага влево, T — взять, P — положить, S — датчик. Непонятные элементы пропускаются.
+ * L2 — два шага влево, T — взять, P — положить, S — датчик, W4 — один блок ЖДАТЬ ×4. Непонятные элементы пропускаются.
  */
 export function parseProgram(text: string): Block[] {
   const out: Block[] = [];
   for (const token of text.trim().split(/\s+/)) {
-    const op = LETTER[token[0]];
     const n = token.length > 1 ? Number(token.slice(1)) : 1;
-    if (!op || !Number.isInteger(n) || n < 1) continue;
+    if (!Number.isInteger(n) || n < 1) continue;
+    if (token[0] === 'W') {
+      out.push({ op: 'wait', n });
+      continue;
+    }
+    const op = LETTER[token[0]];
+    if (!op) continue;
     for (let i = 0; i < n; i++) out.push({ op });
   }
   return out;

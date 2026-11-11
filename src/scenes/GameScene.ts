@@ -30,6 +30,7 @@ import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setText, txt } from '../ui/widgets';
 import { enter, go } from './flow';
+import { preparePitch } from './pitch';
 import { STRESS_ID, deployStress, stressLevel } from './stress';
 import type { ResultsData } from './ResultsScene';
 
@@ -114,7 +115,7 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  create(data: { levelId?: string }): void {
+  create(data: { levelId?: string; pitch?: boolean }): void {
     this.ready = false;
     enter(this);
     this.speed = 1;
@@ -206,6 +207,14 @@ export class GameScene extends Phaser.Scene {
       this.sim.start();
       this.speed = 4;
       this.fps.setVisible(true);
+    } else if (data?.pitch) {
+      // Демо для питча: слепой робот уже работает и промахивается, панель сразу показывает его программу.
+      const robot = preparePitch(this.sim);
+      if (robot !== null) this.view = { kind: 'robot', robotId: robot };
+    }
+    if (stress || data?.pitch) {
+      // События подготовки (появление роботов, первые шаги) уже в прошлом — не озвучиваем их разом.
+      this.sim.step(0);
       this.snap = this.sim.snapshot();
     }
     this.ready = true;
