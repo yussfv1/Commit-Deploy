@@ -79,7 +79,7 @@ export class LevelSelectScene extends Phaser.Scene {
       const level = all[this.selected];
       if (level) go(this, 'Game', { levelId: level.id });
     };
-    new Button(this, W - X0 - 130, 446, { w: 260, h: 56, label: t('levels.start'), kind: 'primary', size: SIZE.title, hint: 'Enter', onClick: start });
+    new Button(this, W - X0 - 130, 446, { w: 260, h: 56, label: t('levels.start'), kind: 'primary', size: SIZE.title, onClick: start });
 
     rule(this, X0, H - 72, W - X0 * 2);
     new Button(this, X0 + 80, H - 44, {
@@ -88,7 +88,6 @@ export class LevelSelectScene extends Phaser.Scene {
       label: t('levels.back'),
       kind: 'quiet',
       size: SIZE.small,
-      hint: 'Esc',
       alignLeft: true,
       onClick: () => go(this, 'Menu'),
     });
