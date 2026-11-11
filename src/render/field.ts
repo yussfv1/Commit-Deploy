@@ -12,15 +12,21 @@ import { LoopLayer } from './loopLayer';
 import type { LoopSpec } from './loopLayer';
 import { Rocket } from './rocket';
 import { laneOffset, robotPose } from './robotPose';
-import { iconKey, robotTexture, tileKey } from './textures';
+import { robotFrameName, robotSheet, viewOf, walkFrame } from './robotSprites';
+import type { RobotFrame } from './robotSprites';
+import { iconKey, tileKey } from './textures';
 
-// Куда смотрит глаз робота: вверх, вправо, вниз, влево.
-const FX = [0, 1, 0, -1];
-const FY = [-1, 0, 1, 0];
 /** За сколько секунд оператор доходит до новой клетки после нажатия. */
 const OPERATOR_STEP = 0.12;
+/** Размер пиксельного робота в пикселях уровня (клетка — 64). */
+const ROBOT_SIZE = 46;
+/** Где над роботом висит груз: над антенной, чуть качается в такт шагу. */
+const ITEM_Y = -36;
+/** Оператор в показе — светлый робот, чтобы не путать его с цветными роботами линии. */
+const OPERATOR_COLOR = 0xe4eefa;
 
 interface MachineSprite {
+  type: MachineView['type'];
   root: Phaser.GameObjects.Container;
   lamp: Phaser.GameObjects.Arc;
   barBg: Phaser.GameObjects.Rectangle;
@@ -33,8 +39,9 @@ interface MachineSprite {
 
 interface RobotSprite {
   root: Phaser.GameObjects.Container;
+  /** Пиксельный робот: кадр меняется по ракурсу, шагу, дыханию и морганию. */
   body: Phaser.GameObjects.Image;
-  eye: Phaser.GameObjects.Image;
+  shadow: Phaser.GameObjects.Image;
   item: Phaser.GameObjects.Image;
   wave: Phaser.GameObjects.Image;
   ring: Phaser.GameObjects.Arc;
@@ -42,6 +49,10 @@ interface RobotSprite {
   ox: number;
   oy: number;
   seen: boolean;
+  /** Когда моргнуть в следующий раз (время сцены, мс). */
+  blinkAt: number;
+  /** Сдвиг фазы дыхания — чтобы роботы не дышали хором. */
+  breath: number;
 }
 
 export interface BottleneckMark {
@@ -59,7 +70,12 @@ export interface FieldRenderOpts {
   extraLoops?: readonly LoopSpec[];
   /** Насколько ярки невыбранные петли. */
   dim?: number;
+  /** Показать петлю только этого робота (остальные петли спрятаны, роботы бледнеют). null — все. */
+  solo?: number | null;
 }
+
+/** Что подсветить на карте по нажатию в легенде: машины одного типа или доки роботов. */
+export type HighlightKind = MachineView['type'] | 'dock';
 
 export class FieldView {
   readonly root: Phaser.GameObjects.Container;
@@ -148,7 +164,7 @@ export class FieldView {
     this.lastSnap = snap;
     if (this.floor.stale()) this.drawFloor();
     this.syncMachines(snap.machines, opts.selectedMachine ?? null);
-    this.syncRobots(snap, dt, opts.selectedRobot ?? null);
+    this.syncRobots(snap, dt, opts.selectedRobot ?? null, opts.solo ?? null);
     this.syncOperator(snap.operator, dt);
     this.syncDocks(snap);
     this.syncLoops(snap, opts);
@@ -202,6 +218,35 @@ export class FieldView {
   /** Что тормозит линию (null — ничего): рамка пульсирует, пока узкое место не уйдёт. */
   markBottleneck(mark: BottleneckMark | null): void {
     this.bottleneck = mark;
+  }
+
+  /**
+   * Подсветить на карте все машины одного типа (или все доки): рамка мигает пару секунд,
+   * а сама машина чуть подпрыгивает — чтобы игрок сразу нашёл её глазами.
+   */
+  highlight(kind: HighlightKind, ms = 2000): void {
+    const spots: { x: number; y: number; target: Phaser.GameObjects.GameObject }[] = [];
+    if (kind === 'dock') {
+      this.level.docks.forEach((d, i) => spots.push({ ...this.center(d.x, d.y), target: this.docks[i].ring }));
+    } else {
+      for (const sp of this.machines.values()) {
+        if (sp.type === kind) spots.push({ x: sp.root.x, y: sp.root.y, target: sp.root });
+      }
+    }
+    const pulses = Math.max(1, Math.round(ms / 500));
+    for (const s of spots) {
+      const frame = this.scene.add.image(s.x, s.y, 'cell_frame').setDisplaySize(74, 74).setTint(COLOR.accent).setAlpha(0);
+      this.fxLayer.add(frame);
+      this.scene.tweens.add({
+        targets: frame,
+        alpha: { from: 1, to: 0.15 },
+        duration: 250,
+        yoyo: true,
+        repeat: pulses - 1,
+        onComplete: () => frame.destroy(),
+      });
+      this.scene.tweens.add({ targets: s.target, scale: { from: 1, to: 1.14 }, duration: 160, yoyo: true, repeat: 1, ease: 'Sine.easeOut' });
+    }
   }
 
   /** Взлёт ракеты в конце уровня. */
@@ -297,7 +342,7 @@ export class FieldView {
     if (m.bought) parts.push(s.add.image(0, 0, 'tile_bought').setDisplaySize(60, 60));
     root.add(parts);
     this.machineLayer.add(root);
-    return { root, lamp, barBg, bar, pips, out, frame, key: '' };
+    return { type: m.type, root, lamp, barBg, bar, pips, out, frame, key: '' };
   }
 
   private syncMachines(list: readonly MachineView[], selected: number | null): void {
@@ -342,17 +387,44 @@ export class FieldView {
 
   private makeRobot(color: number, operator = false): RobotSprite {
     const s = this.scene;
-    const body = s.add.image(0, 0, operator ? 'operator' : robotTexture(s, color)).setDisplaySize(30, 30);
-    const eye = s.add.image(0, 0, 'robot_eye').setDisplaySize(11, 11);
-    const item = s.add.image(0, -20, iconKey('ore')).setDisplaySize(18, 18).setVisible(false);
-    const wave = s.add.image(0, -22, 'sense_wave').setDisplaySize(22, 14).setVisible(false);
-    const ring = s.add.circle(0, 0, 19).setStrokeStyle(2, COLOR.text).setVisible(false);
-    const root = s.add.container(0, 0, [ring, body, eye, item, wave]);
+    const sheet = robotSheet(s, operator ? OPERATOR_COLOR : color);
+    const shadow = s.add.image(0, 14, 'shadow').setDisplaySize(32, 12).setAlpha(0.9);
+    // Опорная точка у пояса: ноги чуть ниже центра клетки, голова выше — робот «стоит» на клетке.
+    const body = s.add.image(0, 0, sheet, robotFrameName('down', 'idle0')).setOrigin(0.5, 0.66).setDisplaySize(ROBOT_SIZE, ROBOT_SIZE);
+    const item = s.add.image(0, ITEM_Y, iconKey('ore')).setDisplaySize(18, 18).setVisible(false);
+    const wave = s.add.image(0, ITEM_Y - 4, 'sense_wave').setDisplaySize(22, 14).setVisible(false);
+    const ring = s.add.circle(0, -4, 23).setStrokeStyle(2, COLOR.text).setVisible(false);
+    const root = s.add.container(0, 0, [ring, shadow, body, item, wave]);
     this.robotLayer.add(root);
-    return { root, body, eye, item, wave, ring, ox: 0, oy: 0, seen: false };
+    const now = s.time.now;
+    return { root, body, shadow, item, wave, ring, ox: 0, oy: 0, seen: false, blinkAt: now + 800 + Math.random() * 2500, breath: Math.random() * 1000 };
   }
 
-  private syncRobots(snap: SimSnapshot, dt: number, selected: number | null): void {
+  /**
+   * Кадр робота: в движении — шаг по пройденному пути, на месте — дыхание и моргание раз в несколько секунд.
+   * travelled — дробная позиция вдоль пути (x + y), dir — куда он смотрит.
+   */
+  private animate(sp: RobotSprite, dir: Dir, moving: boolean, travelled: number): void {
+    const now = this.scene.time.now;
+    const { view, flip } = viewOf(dir);
+    let frame: RobotFrame;
+    if (moving) {
+      frame = walkFrame(travelled);
+    } else if (view !== 'up' && now >= sp.blinkAt && now < sp.blinkAt + 140) {
+      frame = 'blink';
+    } else {
+      if (now >= sp.blinkAt + 140) sp.blinkAt = now + 2200 + Math.random() * 2800;
+      frame = Math.floor((now + sp.breath) / 520) % 2 === 0 ? 'idle0' : 'idle1';
+    }
+    const name = robotFrameName(view, frame);
+    if (sp.body.frame.name !== name) sp.body.setFrame(name);
+    if (sp.body.flipX !== flip) sp.body.setFlipX(flip);
+    // Груз качается вместе с головой: выше на проходе шага, ниже на вдохе.
+    const bob = frame === 'walk1' || frame === 'walk3' ? -2.6 : frame === 'idle1' ? 2.6 : 0;
+    sp.item.setY(ITEM_Y + bob);
+  }
+
+  private syncRobots(snap: SimSnapshot, dt: number, selected: number | null, solo: number | null): void {
     const alive = new Set<number>();
     const a = snap.alpha;
     const blink = Math.floor(this.scene.time.now / 220) % 2 === 0;
@@ -372,10 +444,12 @@ export class FieldView {
       sp.oy += (pose.y - sp.oy) * k;
       sp.seen = true;
       sp.root.setPosition((x + 0.5 + sp.ox) * TILE, (y + 0.5 + sp.oy) * TILE);
-      placeEye(sp, r.dir);
+      this.animate(sp, r.dir, r.x !== r.px || r.y !== r.py, x + y);
       showItem(sp, r.carrying);
       sp.wave.setVisible(r.state === 'sense' && blink);
       sp.ring.setVisible(r.id === selected);
+      const alpha = solo === null || r.id === solo ? 1 : 0.3;
+      if (sp.root.alpha !== alpha) sp.root.setAlpha(alpha);
     }
     for (const [id, sp] of this.robots) {
       if (!alive.has(id)) {
@@ -409,7 +483,7 @@ export class FieldView {
       return;
     }
     if (!this.operator) {
-      this.operator = this.makeRobot(COLOR.teach, true);
+      this.operator = this.makeRobot(OPERATOR_COLOR, true);
       this.opFrom = { x: op.x, y: op.y };
       this.opTo = { x: op.x, y: op.y };
       this.opT = 1;
@@ -426,7 +500,7 @@ export class FieldView {
     this.opT = Math.min(1, this.opT + dt / OPERATOR_STEP);
     const p = this.opPos();
     this.operator.root.setPosition((p.x + 0.5) * TILE, (p.y + 0.5) * TILE);
-    placeEye(this.operator, op.dir);
+    this.animate(this.operator, op.dir, this.opT < 1, p.x + p.y);
     showItem(this.operator, op.carrying);
   }
 
@@ -448,25 +522,25 @@ export class FieldView {
   }
 
   private syncLoops(snap: SimSnapshot, opts: FieldRenderOpts): void {
-    const selected = opts.selectedRobot ?? null;
+    const solo = opts.solo ?? null;
+    // В режиме «только этот робот» выбранной считается его петля: по ней бегут точки направления.
+    const selected = solo ?? opts.selectedRobot ?? null;
     const dim = opts.dim ?? 0.5;
-    const specs: LoopSpec[] = snap.robots.map((r: RobotView) => ({
-      id: r.id,
-      color: robotColor(r.colorIndex),
-      cells: r.path,
-      offset: laneOffset(r.dock),
-      strength: selected === null ? 0.85 : r.id === selected ? 1 : dim,
-    }));
+    const specs: LoopSpec[] = snap.robots
+      .filter((r: RobotView) => solo === null || r.id === solo)
+      .map((r: RobotView) => ({
+        id: r.id,
+        color: robotColor(r.colorIndex),
+        cells: r.path,
+        offset: laneOffset(r.dock),
+        strength: selected === null ? 0.85 : r.id === selected ? 1 : dim,
+      }));
     if (opts.extraLoops) specs.push(...opts.extraLoops);
     if (snap.operator && this.teachCells.length > 1) {
       specs.push({ id: -1, color: COLOR.teach, cells: this.teachCells, offset: 0, strength: 1, dashed: true });
     }
     this.loops.sync(specs, selected);
   }
-}
-
-function placeEye(sp: RobotSprite, dir: Dir): void {
-  sp.eye.setPosition(FX[dir] * 7, FY[dir] * 7);
 }
 
 function showItem(sp: RobotSprite, item: RobotView['carrying']): void {

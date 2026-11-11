@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { H, W } from '../render/layout';
 import { iconKey } from '../render/textures';
 import { audio } from '../ui/audio';
-import { clock, t } from '../ui/i18n';
+import { clock, i18n, t } from '../ui/i18n';
 import { levels } from '../ui/levels';
 import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
@@ -30,6 +30,8 @@ export class LevelSelectScene extends Phaser.Scene {
   private spec: { label: Phaser.GameObjects.Text; value: Phaser.GameObjects.Text }[] = [];
   private head!: Phaser.GameObjects.Text;
   private name!: Phaser.GameObjects.Text;
+  /** Одна строка «чему учит уровень» под названием. */
+  private desc!: Phaser.GameObjects.Text;
 
   constructor() {
     super('LevelSelect');
@@ -64,6 +66,8 @@ export class LevelSelectScene extends Phaser.Scene {
     rule(this, X0, 368, W - X0 * 2);
     this.head = txt(this, X0, 392, '', { size: SIZE.micro, color: COLOR.dim, caps: true });
     this.name = txt(this, X0, 414, '', { size: SIZE.h1, bold: true });
+    // Справа от описания стоит кнопка «Начать» шириной 260 — строка переносится до неё.
+    this.desc = txt(this, X0, 452, '', { size: SIZE.small, color: COLOR.dim, wrap: W - X0 * 2 - 300 });
     for (let i = 0; i < 6; i++) {
       const col = i % 3;
       const row = Math.floor(i / 3);
@@ -153,7 +157,7 @@ export class LevelSelectScene extends Phaser.Scene {
     this.stations.forEach((s, k) => {
       const done = store.record(all[k].id) !== null;
       s.dot.setFillStyle(done ? COLOR.text : COLOR.page).setStrokeStyle(3, done || k === i ? COLOR.text : COLOR.dim);
-      setColor(s.num, done ? COLOR.ink : k === i ? COLOR.text : COLOR.dim);
+      setColor(s.num, done ? COLOR.onText : k === i ? COLOR.text : COLOR.dim);
       s.ring.setVisible(k === i);
       setColor(s.title, k === i ? COLOR.text : COLOR.dim);
     });
@@ -163,6 +167,8 @@ export class LevelSelectScene extends Phaser.Scene {
   private describe(level: LevelData, index: number): void {
     setText(this.head, t('levels.number', { n: index + 1 }).toLocaleUpperCase('ru'));
     setText(this.name, t(level.titleKey));
+    const descKey = `level.${level.id}.desc`;
+    setText(this.desc, i18n.has(descKey) ? t(descKey) : '');
     const record = store.record(level.id);
     const item = t(`item.${level.targetItem}.name`);
     const shop = level.buildable.map((m) => t(`machine.${m}.name`)).join(', ');

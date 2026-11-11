@@ -57,7 +57,9 @@ export class Rocket {
     if (this.burning) return;
     this.burning = true;
     this.flame.setVisible(true);
-    if (shake) this.scene.cameras.main.shake(2200, 0.004);
+    // Зажигание: клуб дыма сразу во все стороны от стола, дальше дым идёт непрерывно (update).
+    for (let i = 0; i < 3; i++) this.smoke.emitParticleAt(this.homeX + (i - 1) * 12, this.homeY + 4, 14);
+    if (shake) this.scene.cameras.main.shake(2400, 0.005);
     this.flying = this.scene.tweens.add({
       targets: this.body,
       y: this.homeY - 820,

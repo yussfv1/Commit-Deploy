@@ -5,7 +5,7 @@ import { audio } from '../ui/audio';
 import { i18n, t } from '../ui/i18n';
 import { store } from '../ui/storage';
 import type { Settings } from '../ui/storage';
-import { COLOR, SIZE } from '../ui/theme';
+import { COLOR, SIZE, THEME } from '../ui/theme';
 import { Button, Slider, dimmer, plate, rule, setText, txt } from '../ui/widgets';
 import { enter } from './flow';
 
@@ -33,7 +33,7 @@ export class SettingsScene extends Phaser.Scene {
     dimmer(this, d);
     const languages = i18n.languages();
     const multi = languages.length > 1 && this.from === 'Menu';
-    const panelH = multi ? 504 : 440;
+    const panelH = (multi ? 504 : 440) + 52;
     const top = Math.round(H / 2 - panelH / 2);
     const left = W / 2 - PANEL_W / 2;
     const inner = left + PAD;
@@ -65,6 +65,27 @@ export class SettingsScene extends Phaser.Scene {
 
     let y = top + 268;
     rule(this, inner, y - 24, PANEL_W - PAD * 2).setDepth(d + 2);
+
+    // Тема: тёмная (ночной пульт) или светлая. Цвета задаются при запуске игры, поэтому смена
+    // темы перезапускает страницу — прогресс и настройки хранятся и не теряются.
+    txt(this, inner, y, t('settings.theme'), { size: SIZE.body, oy: 0.5 }).setDepth(d + 2);
+    (['dark', 'light'] as const).forEach((name, i) => {
+      // Две кнопки по 96, прижаты к правому краю, между ними 8.
+      const b = new Button(this, right - 48 - (1 - i) * 104, y, {
+        w: 96,
+        h: 34,
+        label: t(`settings.theme.${name}`),
+        depth: d + 2,
+        onClick: () => {
+          if (name === THEME) return;
+          store.setSettings({ theme: name });
+          window.location.reload();
+        },
+      });
+      b.setActive(name === THEME);
+    });
+    y += 52;
+
     if (multi) {
       txt(this, inner, y, t('settings.lang'), { size: SIZE.body, oy: 0.5 }).setDepth(d + 2);
       languages.forEach((code, i) => {

@@ -32,7 +32,7 @@ const result = { stars: 2, timeLeft: 40, energySpent: 6, misses: 3, launches: 0 
 
 describe('настройки', () => {
   it('отдаёт значения по умолчанию', () => {
-    expect(createStore(null).settings()).toEqual({ master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru' });
+    expect(createStore(null).settings()).toEqual({ master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru', theme: 'dark' });
   });
 
   it('сохраняет изменения и читает их в новой сессии', () => {

@@ -140,7 +140,7 @@ interface Skin {
 
 function skin(kind: ButtonKind, active: boolean, hover: boolean, pressed: boolean): Skin {
   // Включённый переключатель (скорость ×2, «как код») — инвертирован: светлая плашка, тёмная надпись.
-  if (active) return { fill: COLOR.text, fillAlpha: 1, stroke: undefined, text: COLOR.ink };
+  if (active) return { fill: COLOR.text, fillAlpha: 1, stroke: undefined, text: COLOR.onText };
   let s: Skin;
   switch (kind) {
     case 'primary':
@@ -506,7 +506,7 @@ export class Tooltip {
       this.label.setText(message);
       const w = Math.ceil(this.label.width + 20);
       const h = 28;
-      this.bg.setTexture(plateKey(this.scene, w, h, { fill: COLOR.ink, stroke: COLOR.rule, radius: RADIUS.chip })).setDisplaySize(w, h);
+      this.bg.setTexture(plateKey(this.scene, w, h, { fill: COLOR.chrome, stroke: COLOR.rule, radius: RADIUS.chip })).setDisplaySize(w, h);
     }
     const half = this.bg.displayWidth / 2;
     this.root.setPosition(Math.min(W - half - 6, Math.max(half + 6, x)), Math.max(20, y)).setVisible(true);

@@ -3,10 +3,13 @@
 // интерфейс вокруг нейтральный, а оранжевый — только главное действие на экране и обратный отсчёт.
 import { ROBOT_COLORS } from '../types';
 import type { ItemType, MachineState, MachineType, RobotState } from '../types';
+import { store } from './storage';
+import type { ThemeName } from './storage';
 
 export { ROBOT_COLORS };
 
-export const COLOR = {
+/** Тёмная тема — основная: ночной пульт управления. */
+const DARK = {
   page: 0x09111b,
   floor: 0x0f1b2d,
   grid: 0x172739,
@@ -30,28 +33,69 @@ export const COLOR = {
   miss: 0xf0574d,
   teach: 0x3ec1ff,
   ink: 0x07101a,
+  /** Надпись на плашке цвета text (включённый переключатель): в тёмной теме тёмная, в светлой — белая. */
+  onText: 0x07101a,
   white: 0xffffff,
   black: 0x000000,
 } as const;
+
+type ColorName = keyof typeof DARK;
+
+/**
+ * Светлая тема — тот же пульт днём: светлый щит, белое поле, тёмный текст.
+ * Яркие цвета чуть темнее, чтобы жёлтое и зелёное читалось на белом. ink остаётся тёмным:
+ * это цвет надписей на цветных плашках и зрачков роботов.
+ */
+const LIGHT: Record<ColorName, number> = {
+  page: 0xe7ecf2,
+  floor: 0xf8fafc,
+  grid: 0xe1e7ef,
+  chrome: 0xffffff,
+  rule: 0xd2dae5,
+  raised: 0xeef2f7,
+  raisedHi: 0xe2e9f2,
+  sunken: 0xdfe5ed,
+  tile: 0xedf1f6,
+  tileEdge: 0xb9c5d4,
+  wall: 0xdde3eb,
+  wallLine: 0xc3ccd8,
+  text: 0x142235,
+  dim: 0x4c5d74,
+  faint: 0x8392a7,
+  accent: 0xf26b1d,
+  accentHi: 0xff8a45,
+  ok: 0x23a06b,
+  warn: 0xd99a12,
+  info: 0x2f80d0,
+  miss: 0xdc3f35,
+  teach: 0x1a9fe0,
+  ink: 0x07101a,
+  onText: 0xffffff,
+  white: 0xffffff,
+  black: 0x000000,
+};
+
+/** Тема выбирается один раз при запуске: смена в настройках перезапускает игру. */
+export const THEME: ThemeName = store.settings().theme;
+
+export const COLOR: Readonly<Record<ColorName, number>> = THEME === 'light' ? LIGHT : DARK;
+
+/** Цвета роботов для светлой темы: те же оттенки, но темнее — петли видны на белом поле. */
+const ROBOT_COLORS_LIGHT = [0x1e95dc, 0xd9a400, 0x2aa82a, 0xe0327c, 0x7d52e6, 0xec7414, 0x12a98a, 0xd83a37] as const;
 
 /** Лампочка машины: работает — зелёная, готово — жёлтая, пусто — серая, заполнено — синяя. */
 export const LAMP: Record<MachineState, number> = {
   working: COLOR.ok,
   ready: COLOR.warn,
-  idle: 0x44556b,
+  idle: THEME === 'light' ? 0xa5b1c2 : 0x44556b,
   full: COLOR.info,
 };
 
 /** Цвета состояний робота — одни и те же на карте и в полосах телеметрии. Полезное — синие и зелёный, потери — серый и красный. */
-export const STATE_COLOR: Record<RobotState, number> = {
-  idle: 0x2b3b52,
-  move: 0x4d6c96,
-  carry: 0x86b9ea,
-  act: COLOR.ok,
-  wait: 0x3d4c62,
-  sense: COLOR.warn,
-  miss: COLOR.miss,
-};
+export const STATE_COLOR: Record<RobotState, number> =
+  THEME === 'light'
+    ? { idle: 0xc9d2de, move: 0x7f9bbf, carry: 0x3f86c9, act: COLOR.ok, wait: 0xa9b5c5, sense: COLOR.warn, miss: COLOR.miss }
+    : { idle: 0x2b3b52, move: 0x4d6c96, carry: 0x86b9ea, act: COLOR.ok, wait: 0x3d4c62, sense: COLOR.warn, miss: COLOR.miss };
 
 export const ITEM_COLOR: Record<ItemType, number> = {
   ore: 0xc9834c,
@@ -99,5 +143,8 @@ export function mix(a: number, b: number, t: number): number {
 export const darken = (color: number, amount: number): number => mix(color, COLOR.black, amount);
 export const lighten = (color: number, amount: number): number => mix(color, COLOR.white, amount);
 
-/** Цвет робота по индексу из снимка. */
-export const robotColor = (colorIndex: number): number => ROBOT_COLORS[((colorIndex % ROBOT_COLORS.length) + ROBOT_COLORS.length) % ROBOT_COLORS.length];
+/** Цвет робота по индексу из снимка (в светлой теме — более тёмный вариант того же оттенка). */
+export const robotColor = (colorIndex: number): number => {
+  const list = THEME === 'light' ? ROBOT_COLORS_LIGHT : ROBOT_COLORS;
+  return list[((colorIndex % list.length) + list.length) % list.length];
+};

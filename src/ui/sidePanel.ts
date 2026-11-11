@@ -20,6 +20,8 @@ export type PanelView =
 export interface PanelHandlers {
   finishTeach(): void;
   cancelTeach(): void;
+  /** Ещё одна копия со сдвигом вместе с роботом из показа (то же, что клавиша R). */
+  teachCopy(): void;
   pick(index: number): void;
   removeBlock(): void;
   toggleSense(): void;
@@ -36,6 +38,10 @@ export interface PanelState {
   /** Выбранный блок программы или -1. */
   pick: number;
   code: boolean;
+  /** Сколько копий со сдвигом встанет вместе с роботом из показа. */
+  teachCopies: number;
+  /** Сколько копий хватит энергии поставить. */
+  maxTeachCopies: number;
 }
 
 const X = PANEL.x + 16;
@@ -59,6 +65,7 @@ export class SidePanel {
   private readonly robotButtons: Record<string, Button>;
   private readonly sellButton: Button;
   private readonly finish: Button;
+  private readonly teachCopy: Button;
   private shown = '';
 
   constructor(scene: Phaser.Scene, level: LevelData, handlers: PanelHandlers) {
@@ -88,18 +95,25 @@ export class SidePanel {
       y: BOTTOM - 16 - (4 - row) * 40,
       w: wide ? CW : half,
     });
-    const make = (pos: { x: number; y: number; w: number }, label: string, onClick: () => void, kind: 'normal' | 'danger' | 'primary' = 'normal'): Button =>
-      new Button(scene, pos.x, pos.y, { w: pos.w, h: 34, label, size: SIZE.small, kind, depth: d + 1, onClick });
+    const make = (
+      pos: { x: number; y: number; w: number },
+      label: string,
+      onClick: () => void,
+      kind: 'normal' | 'danger' | 'primary' = 'normal',
+      hint?: string,
+    ): Button => new Button(scene, pos.x, pos.y, { w: pos.w, h: 34, label, size: SIZE.small, kind, depth: d + 1, onClick, hint });
 
-    this.finish = make(at(0, 4, true), t('teach.finish'), () => handlers.finishTeach(), 'primary');
-    this.teachButtons = [this.finish, make(at(0, 3, true), t('teach.cancel'), () => handlers.cancelTeach())];
+    this.finish = make(at(0, 4, true), t('teach.finish'), () => handlers.finishTeach(), 'primary', 'Enter');
+    // Копию со сдвигом можно заказать прямо во время показа: она встанет на док вместе с роботом.
+    this.teachCopy = make(at(0, 2, true), t('teach.copy'), () => handlers.teachCopy(), 'normal', 'R');
+    this.teachButtons = [this.finish, this.teachCopy, make(at(0, 3, true), t('teach.cancel'), () => handlers.cancelTeach(), 'normal', 'Esc')];
 
     this.robotButtons = {
       remove: make(at(0, 0), t('robot.removeBlock'), () => handlers.removeBlock()),
       sense: make(at(1, 0), t('robot.sense'), () => handlers.toggleSense()),
       waitLess: make(at(0, 1), t('robot.waitLess'), () => handlers.wait(-1)),
       waitMore: make(at(1, 1), t('robot.waitMore'), () => handlers.wait(1)),
-      copy: make(at(0, 2, true), t('robot.copy'), () => handlers.copy()),
+      copy: make(at(0, 2, true), t('robot.copy'), () => handlers.copy(), 'normal', 'R'),
       rewrite: make(at(0, 3), t('robot.rewrite'), () => handlers.rewrite()),
       dismiss: make(at(1, 3), t('robot.dismiss'), () => handlers.removeRobot(), 'danger'),
       code: make(at(0, 4, true), t('robot.code'), () => handlers.toggleCode()),
@@ -109,7 +123,7 @@ export class SidePanel {
 
   /** Где кнопка, на которую показывает стрелка обучения. */
   anchor(id: 'finish' | 'copy'): { x: number; y: number } | null {
-    const b = id === 'finish' ? this.finish : this.robotButtons.copy;
+    const b = id === 'finish' ? this.finish : this.teachCopy.root.visible ? this.teachCopy : this.robotButtons.copy;
     return b.root.visible ? { x: b.x, y: b.y - 17 } : null;
   }
 
@@ -120,7 +134,7 @@ export class SidePanel {
       this.shown = key;
       this.layout(v.kind, state.code);
     }
-    if (v.kind === 'teach') this.showTeach(snap);
+    if (v.kind === 'teach') this.showTeach(snap, state);
     else if (v.kind === 'robot') {
       const r = snap.robots.find((x) => x.id === v.robotId);
       if (r) this.showRobot(snap, r, state);
@@ -154,9 +168,12 @@ export class SidePanel {
     this.body.setY(TOP + 32);
   }
 
-  private showTeach(snap: SimSnapshot): void {
+  private showTeach(snap: SimSnapshot, state: PanelState): void {
     setText(this.title, t('teach.title'));
     setColor(this.title, COLOR.teach);
+    const copies = state.teachCopies;
+    this.teachCopy.setLabel(copies > 0 ? t('teach.copyN', { n: copies }) : t('teach.copy'));
+    this.teachCopy.setActive(copies > 0);
     const op = snap.operator;
     setText(this.sub, t('teach.counter', { n: op?.blocks ?? snap.recording.length, max: this.level.maxProgram }));
     this.strip.set(snap.recording, snap.recording.length - 1, -1, COLOR.teach);

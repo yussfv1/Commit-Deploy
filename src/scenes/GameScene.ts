@@ -2,16 +2,18 @@
 // и рисует sim.snapshot(). Время мира идёт только через sim.step(dt × скорость).
 import Phaser from 'phaser';
 import { Simulation } from '../sim';
-import { OPERATOR_ID } from '../types';
+import { OPERATOR_ID, TILE } from '../types';
 import type { Block, FailReason, LevelData, MachineType, SimEvent, SimSnapshot, TeachInput } from '../types';
 import { FieldView } from '../render/field';
+import type { HighlightKind } from '../render/field';
 import type { LoopSpec } from '../render/loopLayer';
-import { BOTTOM, DEPTH, FIELD, PANEL, TOP_H, fieldOrigin } from '../render/layout';
+import { BOTTOM, DEPTH, FIELD, PANEL, STRIP, TOP_H, fieldFit } from '../render/layout';
 import { laneOffset } from '../render/robotPose';
 import { iconKey, tileKey } from '../render/textures';
 import { audio, stepRate } from '../ui/audio';
 import type { SfxName } from '../ui/audio';
 import { BottomBar } from '../ui/bottomBar';
+import { FieldStrip } from '../ui/fieldStrip';
 import { hints } from '../ui/hints';
 import { t } from '../ui/i18n';
 import { levelById, levelIndex, levels, machineDefs } from '../ui/levels';
@@ -26,7 +28,7 @@ import { TelemetryPanel } from '../ui/telemetryPanel';
 import { bottleneckSpot } from '../ui/telemetryModel';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
-import { Toasts, plate, plateKey, setText, txt } from '../ui/widgets';
+import { Toasts, plate, plateKey, setColor, setText, txt } from '../ui/widgets';
 import { enter, go } from './flow';
 import type { ResultsData } from './ResultsScene';
 
@@ -102,6 +104,13 @@ export class GameScene extends Phaser.Scene {
   private lastRepeat = 0;
   private pendingPath: { sig: string; spec: LoopSpec | null } = { sig: '', spec: null };
   private countdown: Phaser.GameObjects.Text | null = null;
+  private strip!: FieldStrip;
+  /** Показать петлю только этого робота (кнопки над картой). null — все петли. */
+  private solo: number | null = null;
+  /** Сколько копий со сдвигом поставить вместе с роботом, которого сейчас показывают (клавиша R в показе). */
+  private teachCopies = 0;
+  /** Идёт перезапись уже стоящего робота (а не показ нового). */
+  private teachReplace = false;
   /** Сцена собрана: до этого (или если уровень не загрузился) update ничего не делает. */
   private ready = false;
 
@@ -121,6 +130,8 @@ export class GameScene extends Phaser.Scene {
     this.telemetryOpen = false;
     this.pendingPath = { sig: '', spec: null };
     this.countdown = null;
+    this.solo = null;
+    this.teachCopies = 0;
 
     const level = levelById(data?.levelId ?? '') ?? levels()[0];
     this.level = level;
@@ -136,15 +147,27 @@ export class GameScene extends Phaser.Scene {
     this.snap = this.sim.snapshot();
     this.cameras.main.setBackgroundColor(COLOR.page);
 
-    const o = fieldOrigin(level.width, level.height);
-    this.field = new FieldView(this, level, o.ox, o.oy, 1);
+    // Карта занимает всё место под полосой легенды: маленький уровень крупнее, большой влезает целиком.
+    const fit = fieldFit(level.width, level.height);
+    this.field = new FieldView(this, level, fit.ox, fit.oy, fit.scale);
     this.field.root.setDepth(DEPTH.floor);
 
-    // Режим обучения: голубой фильтр на поле и плашка о том, что настоящий мир стоит.
+    this.strip = new FieldStrip(this, level, levels(), {
+      legend: (kind) => this.showLegend(kind),
+      solo: (id) => {
+        this.solo = id;
+      },
+    });
+
+    // Режим обучения: голубой фильтр на поле и плашка о том, что настоящий мир стоит (справа в полосе над картой).
     this.tint = this.add.rectangle(FIELD.x, FIELD.y, FIELD.w, FIELD.h, COLOR.teach, 0.07).setOrigin(0, 0).setDepth(DEPTH.tint).setVisible(false);
     const bannerText = txt(this, 0, 0, t('teach.banner'), { size: SIZE.micro, bold: true, color: COLOR.ink, caps: true, ox: 0.5, oy: 0.5 });
-    const bannerBg = plate(this, 0, 0, Math.ceil(bannerText.width + 32), 28, { fill: COLOR.teach, radius: 3 });
-    this.banner = this.add.container(FIELD.x + FIELD.w / 2, FIELD.y + 22, [bannerBg, bannerText]).setDepth(DEPTH.marker).setVisible(false);
+    const bannerW = Math.ceil(bannerText.width + 32);
+    const bannerBg = plate(this, 0, 0, bannerW, 28, { fill: COLOR.teach, radius: 3 });
+    this.banner = this.add
+      .container(STRIP.x + STRIP.w - bannerW / 2, STRIP.y + STRIP.h / 2, [bannerBg, bannerText])
+      .setDepth(DEPTH.marker)
+      .setVisible(false);
 
     this.top = new TopBar(this, t(level.titleKey), !!level.endless, level.targetItem, {
       speed: (s) => this.setSpeed(s),
@@ -153,6 +176,7 @@ export class GameScene extends Phaser.Scene {
     this.panel = new SidePanel(this, level, {
       finishTeach: () => this.finishTeach(),
       cancelTeach: () => this.cancelTeach(),
+      teachCopy: () => this.cycleTeachCopies(),
       pick: (i) => {
         this.pick = this.pick === i ? -1 : i;
       },
@@ -193,6 +217,9 @@ export class GameScene extends Phaser.Scene {
     // Tab не должен уводить фокус из игры.
     this.input.keyboard?.addCapture('TAB,SPACE,UP,DOWN,LEFT,RIGHT');
     audio.music('shift');
+    // Машины, которых на прошлых уровнях не было, один раз мигают сами — игрок сразу видит, что нового.
+    const fresh = FieldStrip.fresh(level, levels());
+    if (fresh.length > 0) this.time.delayedCall(600, () => fresh.forEach((k) => this.field.highlight(k, 2500)));
     this.ready = true;
   }
 
@@ -209,11 +236,21 @@ export class GameScene extends Phaser.Scene {
     const selectedRobot = this.view.kind === 'robot' ? this.view.robotId : null;
     const selectedMachine = this.view.kind === 'machine' ? this.view.machineId : null;
     const extra = this.pendingLoop(s, selectedRobot);
+    // Робота, чью петлю смотрели отдельно, убрали — снова показываем все петли.
+    if (this.solo !== null && (s.robots.length < 2 || !s.robots.some((r) => r.id === this.solo))) this.solo = null;
+    const solo = s.mode === 'teach' ? null : this.solo;
     this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
-    this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined });
+    this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined, solo });
+    this.strip.update(s, this.solo);
     this.telemetry.update(s, selectedRobot);
     this.top.update(s, this.speed);
-    this.panel.update(s, { view: this.view, pick: this.pick, code: this.code });
+    this.panel.update(s, {
+      view: this.view,
+      pick: this.pick,
+      code: this.code,
+      teachCopies: this.teachCopies,
+      maxTeachCopies: this.maxTeachCopies(s),
+    });
     this.bottom.update(s, this.buyType);
     const teach = s.mode === 'teach';
     this.tint.setVisible(teach);
@@ -258,6 +295,8 @@ export class GameScene extends Phaser.Scene {
     }
     const w = this.worldPoint(p);
     if (!this.onField(w.x, w.y) || this.telemetry.covers(w.y)) return;
+    // Полоса над картой (легенда, выбор петель) — свои кнопки, это не клик по полю.
+    if (w.y < STRIP.y + STRIP.h + 4) return;
     const s = this.snap;
     if (s.mode === 'teach' || s.mode === 'won' || s.mode === 'lost') return;
     const cell = this.field.cellAt(w.x, w.y);
@@ -277,9 +316,10 @@ export class GameScene extends Phaser.Scene {
     }
     // Робот под курсором (он может стоять между клетками).
     let best: { id: number; d: number } | null = null;
+    const cellPx = TILE * this.field.scale;
     for (const r of s.robots) {
       const off = laneOffset(r.dock);
-      const d = Math.hypot(r.x + 0.5 - (w.x - this.field.root.x) / 64, r.y + 0.5 - (w.y - this.field.root.y) / 64);
+      const d = Math.hypot(r.x + 0.5 - (w.x - this.field.root.x) / cellPx, r.y + 0.5 - (w.y - this.field.root.y) / cellPx);
       if (d < 0.45 + off && (!best || d < best.d)) best = { id: r.id, d };
     }
     if (best) {
@@ -333,6 +373,8 @@ export class GameScene extends Phaser.Scene {
         }
         this.lastRepeat = this.time.now;
         this.teach(input);
+      } else if (ev.code === 'KeyR') {
+        if (!ev.repeat) this.cycleTeachCopies();
       } else if (ev.code === 'Enter' || ev.code === 'NumpadEnter') this.finishTeach();
       else if (ev.code === 'Escape') this.cancelTeach();
       return;
@@ -370,6 +412,9 @@ export class GameScene extends Phaser.Scene {
       case 'KeyF':
         this.fps.setVisible(!this.fps.visible);
         break;
+      case 'KeyR':
+        this.copyHotkey();
+        break;
       case 'Delete':
       case 'Backspace':
         if (this.view.kind === 'robot' && this.pick >= 0) this.editSelected((p) => removeBlock(p, this.pick), 'remove');
@@ -377,6 +422,14 @@ export class GameScene extends Phaser.Scene {
       default:
         break;
     }
+  }
+
+  /** Нажатие в легенде: машины этого типа мигают на карте, а панель справа рассказывает, что это за машина. */
+  private showLegend(kind: HighlightKind): void {
+    this.field.highlight(kind);
+    if (kind === 'dock' || this.snap.mode === 'teach' || this.ending !== 'none') return;
+    const m = this.snap.machines.find((x) => x.type === kind);
+    if (m) this.setView({ kind: 'machine', machineId: m.id });
   }
 
   private setTelemetry(open: boolean): void {
@@ -403,6 +456,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.toggleBuy(null);
+    this.teachCopies = 0;
+    this.teachReplace = replace !== undefined;
     this.setView({ kind: 'teach' });
     audio.play('click');
   }
@@ -431,12 +486,63 @@ export class GameScene extends Phaser.Scene {
     }
     this.view = { kind: 'robot', robotId: r.id };
     this.pick = -1;
+    // Копии, заказанные клавишей R во время показа: встают на тот же док, сдвиг делит круг поровну.
+    const copies = this.teachCopies;
+    this.teachCopies = 0;
+    if (copies > 0) {
+      const robot = this.sim.snapshot().robots.find((x) => x.id === r.id);
+      const steps = robot ? programSteps(robot.pendingProgram ?? robot.program) : 0;
+      let made = 0;
+      for (let i = 1; i <= copies; i++) {
+        const delay = Math.max(1, Math.round((steps * i) / (copies + 1)));
+        const res = this.sim.copyRobot(r.id, delay);
+        if (!res.ok) {
+          this.fail(res.reason);
+          break;
+        }
+        made++;
+      }
+      if (made > 0) this.toasts.show(t('robot.copiedOnFinish', { n: made }), 'ok');
+    }
   }
 
   private cancelTeach(): void {
     this.sim.cancelTeach();
+    this.teachCopies = 0;
     this.setView({ kind: 'idle' });
     audio.play('click');
+  }
+
+  /** Сколько копий со сдвигом хватит энергии поставить вместе с роботом из показа. */
+  private maxTeachCopies(s: SimSnapshot): number {
+    if (s.mode !== 'teach' || s.robotCost <= 0) return s.mode === 'teach' ? 3 : 0;
+    // Перезапись робота новую энергию не тратит: он уже стоит на доке.
+    const free = s.energyLeft - (this.teachReplace ? 0 : s.robotCost);
+    return Math.max(0, Math.min(3, Math.floor(free / s.robotCost)));
+  }
+
+  /** R в показе: ещё одна копия со сдвигом (0 → 1 → 2 … → 0). Не хватает энергии — подсказка. */
+  private cycleTeachCopies(): void {
+    const max = this.maxTeachCopies(this.snap);
+    if (max === 0) {
+      this.teachCopies = 0;
+      this.fail('noEnergy');
+      return;
+    }
+    this.teachCopies = this.teachCopies >= max ? 0 : this.teachCopies + 1;
+    audio.play('click');
+  }
+
+  /** R вне показа: копия выбранного робота, а если никто не выбран — последнего поставленного. */
+  private copyHotkey(): void {
+    if (this.snap.mode !== 'plan' && this.snap.mode !== 'running') return;
+    const r = this.selectedRobot() ?? this.snap.robots[this.snap.robots.length - 1] ?? null;
+    if (!r) {
+      this.toasts.show(t('robot.copyNoRobot'), 'info');
+      audio.play('error');
+      return;
+    }
+    this.copyRobot(r);
   }
 
   // ---------- правка программы ----------
@@ -472,9 +578,15 @@ export class GameScene extends Phaser.Scene {
 
   private copySelected(): void {
     const r = this.selectedRobot();
-    if (!r) return;
-    // Копия стартует на полкруга позже: два робота делят работу и не мешают друг другу.
-    const delay = Math.max(1, Math.round(programSteps(r.pendingProgram ?? r.program) / 2));
+    if (r) this.copyRobot(r);
+  }
+
+  private copyRobot(r: SimSnapshot['robots'][number]): void {
+    // Копия стартует позже: с одной копией — на полкруга, с каждой следующей — в оставшийся просвет,
+    // чтобы роботы на одном доке делили круг и не ходили друг за другом вплотную.
+    const onDock = this.snap.robots.filter((x) => x.dock === r.dock).length;
+    const steps = programSteps(r.pendingProgram ?? r.program);
+    const delay = Math.max(1, Math.round((steps * onDock) / (onDock + 1)));
     const res = this.sim.copyRobot(r.id, delay);
     if (!res.ok) {
       this.fail(res.reason);
@@ -519,7 +631,11 @@ export class GameScene extends Phaser.Scene {
     this.buyType = type === null || this.buyType === type ? null : type;
     this.ghost.removeAll(true);
     if (this.buyType) {
-      this.ghost.add([this.add.image(0, 0, tileKey(this.buyType)).setDisplaySize(56, 56), this.add.image(0, -3, iconKey(this.buyType)).setDisplaySize(34, 34)]);
+      const k = this.field.scale;
+      this.ghost.add([
+        this.add.image(0, 0, tileKey(this.buyType)).setDisplaySize(56 * k, 56 * k),
+        this.add.image(0, -3 * k, iconKey(this.buyType)).setDisplaySize(34 * k, 34 * k),
+      ]);
       this.setView({ kind: 'idle' });
     }
     this.drawGhost();
@@ -601,31 +717,55 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Отсчёт 3-2-1, потом ракета уходит вверх; итог — когда она скрылась. */
+  /**
+   * Отсчёт T−3, T−2, T−1 и «Пуск!», вспышка зажигания, ракета уходит вверх с дымом и тряской.
+   * Итоги — через полсекунды после того, как ракета скрылась: игрок успевает увидеть пустой стол в дыму.
+   */
   private beginLaunch(): void {
     if (this.ending !== 'none') return;
     this.ending = 'launch';
     this.view = { kind: 'idle' };
     this.setTelemetry(false);
     const c = { x: FIELD.x + FIELD.w / 2, y: FIELD.y + FIELD.h / 2 };
-    this.countdown = txt(this, c.x, c.y, '3', { size: 120, bold: true, ox: 0.5, oy: 0.5 }).setDepth(DEPTH.modal);
+    this.countdown = txt(this, c.x, c.y, '', { size: 120, bold: true, ox: 0.5, oy: 0.5 }).setDepth(DEPTH.modal);
+    const pop = (label: string, color: number): void => {
+      if (!this.countdown) return;
+      setText(this.countdown, label);
+      setColor(this.countdown, color);
+      this.countdown.setScale(1.4).setAlpha(0.15);
+      this.tweens.add({ targets: this.countdown, scale: 1, alpha: 1, duration: 280, ease: 'Back.easeOut' });
+    };
     let n = 3;
+    pop(t('launch.t', { n }), COLOR.text);
     audio.play('countdown');
     this.time.addEvent({
-      delay: 650,
+      delay: 700,
       repeat: 2,
       callback: () => {
         n--;
         if (!this.countdown) return;
         if (n > 0) {
-          setText(this.countdown, String(n));
+          pop(t('launch.t', { n }), COLOR.text);
           audio.play('countdown');
           return;
         }
-        this.countdown.destroy();
-        this.countdown = null;
+        pop(t('launch.go'), COLOR.accent);
+        const label = this.countdown;
+        this.tweens.add({
+          targets: label,
+          alpha: 0,
+          delay: 650,
+          duration: 450,
+          onComplete: () => {
+            label.destroy();
+            if (this.countdown === label) this.countdown = null;
+          },
+        });
         audio.play('launch');
-        this.field.launchRocket(() => this.showResults(true));
+        // Вспышка зажигания на всё поле.
+        const flash = this.add.rectangle(FIELD.x, FIELD.y, FIELD.w, FIELD.h, COLOR.white, 0.45).setOrigin(0, 0).setDepth(DEPTH.fx);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
+        this.field.launchRocket(() => this.time.delayedCall(550, () => this.showResults(true)));
       },
     });
   }
@@ -705,12 +845,20 @@ export class GameScene extends Phaser.Scene {
     }
     const target = this.tutorial.target(ctx);
     let at: { x: number; y: number } | null = null;
+    const above = (x: number, y: number): { x: number; y: number } => {
+      const c = this.field.screenCenter(x, y);
+      return { x: c.x, y: c.y - TILE * 0.69 * this.field.scale };
+    };
     if (target?.kind === 'cell') {
-      const c = this.field.screenCenter(target.x, target.y);
-      at = { x: c.x, y: c.y - 44 };
+      at = above(target.x, target.y);
     } else if (target?.kind === 'ui') {
       if (target.id === 'start') at = this.bottom.anchor();
       else if (target.id === 'finish' || target.id === 'copy') at = this.panel.anchor(target.id);
+      // Кнопки копии не видно (робот не выбран) — стрелка показывает на робота: R или клик по нему.
+      if (!at && target.id === 'copy') {
+        const r = s.robots[s.robots.length - 1];
+        if (r) at = above(this.level.docks[r.dock].x, this.level.docks[r.dock].y);
+      }
     }
     this.tutArrow.setVisible(at !== null);
     if (at) this.tutArrow.setPosition(at.x, at.y - 18 + Math.sin(this.time.now / 180) * 5);

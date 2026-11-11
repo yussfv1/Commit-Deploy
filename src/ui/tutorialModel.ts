@@ -7,7 +7,8 @@
 //   tutorial.put            положи предмет (E)
 //   tutorial.returnDock     вернись на док
 //   tutorial.finish         нажми «Готово»
-//   tutorial.copy           сделай копию робота со сдвигом (кнопка на панели робота)
+//   tutorial.copy           сделай копию робота со сдвигом (клавиша R или кнопка на панели робота)
+//   tutorial.secondRobot    поставь второго робота на свободный док (в показе — стрелка на пресс)
 //   tutorial.start          нажми СТАРТ
 //   tutorial.waitPress      подсказка в репетиции: дождись пресса (Пробел)
 //   tutorial.sensor         после первого промаха: поставь ДАТЧИК
@@ -26,6 +27,7 @@ export type StepKind =
   | 'returnDock'
   | 'finish'
   | 'copy'
+  | 'secondRobot'
   | 'start'
   | 'waitPress'
   | 'sensor'
@@ -55,6 +57,7 @@ const SIMPLE: readonly StepKind[] = [
   'returnDock',
   'finish',
   'copy',
+  'secondRobot',
   'start',
   'waitPress',
   'sensor',
@@ -109,6 +112,8 @@ function done(step: Step, ctx: TutorialCtx): boolean {
     case 'copy':
       // Копия встаёт на тот же док со сдвигом по времени. Нет энергии на второго робота — шаг пропускаем.
       return s.robots.length >= 2 || s.energyLeft < s.robotCost || started(s);
+    case 'secondRobot':
+      return (s.mode !== 'teach' && s.robots.length >= 2) || started(s);
     case 'start':
       return started(s);
     case 'waitPress':
@@ -185,6 +190,10 @@ export class TutorialFlow {
         return cellOf(frontMachine(ctx));
       case 'returnDock':
         return s.operator ? cellOf(ctx.level.docks[s.operator.dock]) : null;
+      case 'secondRobot':
+        // В показе — на пресс (там ждать пластину), иначе — на свободный док.
+        if (s.mode === 'teach') return cellOf(s.machines.find((m) => m.type === 'press'));
+        return cellOf(ctx.level.docks[freeDock(ctx)]);
       case 'finish':
       case 'copy':
       case 'start':
