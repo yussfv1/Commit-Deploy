@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="128" viewBox="0 0 64 128">
+  <!-- Ракета T-MINUS, 64 × 128 (в игру идёт PNG 128 × 256). Низ сопла на y = 112: ниже — место под пламя.
+       Плоский стиль игры: белый корпус, оранжевый акцент, тёмный контур, без бликов и градиентов. -->
+  <defs>
+    <clipPath id="hull">
+      <path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z"/>
+    </clipPath>
+  </defs>
+  <!-- Боковые стабилизаторы -->
+  <path d="M17 70 L4 104 L17 99 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M47 70 L60 104 L47 99 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Сопло -->
+  <path d="M23 99 H41 L44 112 H20 Z" fill="#2e4565" stroke="#5c6e86" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M22 106 H42" stroke="#5c6e86" stroke-width="1.5"/>
+  <!-- Корпус -->
+  <path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z" fill="#e9eef5"/>
+  <g clip-path="url(#hull)">
+    <!-- Оранжевый обтекатель и полоса -->
+    <rect x="10" y="0" width="44" height="25" fill="#ff7a2f"/>
+    <rect x="10" y="80" width="44" height="7" fill="#ff7a2f"/>
+    <!-- Шов между ступенями и правая затенённая грань — объём без градиента -->
+    <path d="M14 68 H50" stroke="#c3cedb" stroke-width="1.5"/>
+    <path d="M40 0 C46 24 48 42 48 58 L48 100 L40 100 Z" fill="#000" opacity="0.07"/>
+  </g>
+  <path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z" fill="none" stroke="#5c6e86" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Центральный стабилизатор (вид спереди) -->
+  <path d="M30 86 H34 V104 H30 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Иллюминатор -->
+  <circle cx="32" cy="47" r="8" fill="#0f1b2d" stroke="#5c6e86" stroke-width="2"/>
+  <circle cx="32" cy="47" r="4.5" fill="none" stroke="#3ec1ff" stroke-width="1.5" opacity="0.8"/>
+</svg>
