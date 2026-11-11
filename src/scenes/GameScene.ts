@@ -357,6 +357,14 @@ export class GameScene extends Phaser.Scene {
 
   private onKey(ev: KeyboardEvent): void {
     if (!this.ready) return;
+    // Горячие клавиши работают в игре всегда — и в плане, и во время показа, и пока идёт отсчёт:
+    // M — к выбору уровней (Esc — меню паузы, ниже). R на поле — копия робота со сдвигом (см. ниже),
+    // а «заново» — R в меню паузы и в итогах.
+    if (!ev.repeat && ev.code === 'KeyM') {
+      if (this.snap.mode === 'teach') this.sim.cancelTeach();
+      go(this, 'LevelSelect', { levelId: this.level.id });
+      return;
+    }
     if (this.ending !== 'none') {
       if (ev.code === 'Enter' || ev.code === 'Space' || ev.code === 'Escape') this.skipEnding();
       return;
@@ -376,7 +384,9 @@ export class GameScene extends Phaser.Scene {
       } else if (ev.code === 'KeyR') {
         if (!ev.repeat) this.cycleTeachCopies();
       } else if (ev.code === 'Enter' || ev.code === 'NumpadEnter') this.finishTeach();
-      else if (ev.code === 'Escape') this.cancelTeach();
+      // Esc и во время показа открывает меню паузы. Запись при этом сохраняется: «Продолжить» — и показ идёт дальше.
+      // Отменить показ можно кнопкой «Отменить показ» на панели.
+      else if (ev.code === 'Escape') this.openPause();
       return;
     }
     if (ev.repeat) return;

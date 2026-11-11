@@ -95,25 +95,21 @@ export class SidePanel {
       y: BOTTOM - 16 - (4 - row) * 40,
       w: wide ? CW : half,
     });
-    const make = (
-      pos: { x: number; y: number; w: number },
-      label: string,
-      onClick: () => void,
-      kind: 'normal' | 'danger' | 'primary' = 'normal',
-      hint?: string,
-    ): Button => new Button(scene, pos.x, pos.y, { w: pos.w, h: 34, label, size: SIZE.small, kind, depth: d + 1, onClick, hint });
+    const make = (pos: { x: number; y: number; w: number }, label: string, onClick: () => void, kind: 'normal' | 'danger' | 'primary' = 'normal'): Button =>
+      new Button(scene, pos.x, pos.y, { w: pos.w, h: 34, label, size: SIZE.small, kind, depth: d + 1, onClick });
 
-    this.finish = make(at(0, 4, true), t('teach.finish'), () => handlers.finishTeach(), 'primary', 'Enter');
+    this.finish = make(at(0, 4, true), t('teach.finish'), () => handlers.finishTeach(), 'primary');
     // Копию со сдвигом можно заказать прямо во время показа: она встанет на док вместе с роботом.
-    this.teachCopy = make(at(0, 2, true), t('teach.copy'), () => handlers.teachCopy(), 'normal', 'R');
-    this.teachButtons = [this.finish, this.teachCopy, make(at(0, 3, true), t('teach.cancel'), () => handlers.cancelTeach(), 'normal', 'Esc')];
+    // Клавиша R написана прямо в надписи кнопки — подписей клавиш на кнопках в игре нет.
+    this.teachCopy = make(at(0, 2, true), t('teach.copy'), () => handlers.teachCopy());
+    this.teachButtons = [this.finish, this.teachCopy, make(at(0, 3, true), t('teach.cancel'), () => handlers.cancelTeach())];
 
     this.robotButtons = {
       remove: make(at(0, 0), t('robot.removeBlock'), () => handlers.removeBlock()),
       sense: make(at(1, 0), t('robot.sense'), () => handlers.toggleSense()),
       waitLess: make(at(0, 1), t('robot.waitLess'), () => handlers.wait(-1)),
       waitMore: make(at(1, 1), t('robot.waitMore'), () => handlers.wait(1)),
-      copy: make(at(0, 2, true), t('robot.copy'), () => handlers.copy(), 'normal', 'R'),
+      copy: make(at(0, 2, true), t('robot.copy'), () => handlers.copy()),
       rewrite: make(at(0, 3), t('robot.rewrite'), () => handlers.rewrite()),
       dismiss: make(at(1, 3), t('robot.dismiss'), () => handlers.removeRobot(), 'danger'),
       code: make(at(0, 4, true), t('robot.code'), () => handlers.toggleCode()),

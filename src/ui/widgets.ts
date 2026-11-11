@@ -177,8 +177,6 @@ export interface ButtonOpts {
   iconSize?: number;
   /** Иконка-значок нарисована белым: красить её в цвет надписи (тёмная на оранжевой кнопке, светлая на серой). */
   iconTint?: boolean;
-  /** Подсказка справа мелким шрифтом (клавиша). */
-  hint?: string;
   depth?: number;
   /** Не играть звук нажатия (когда действие само звучит). */
   silent?: boolean;
@@ -191,7 +189,6 @@ export class Button {
   private readonly scene: Phaser.Scene;
   private readonly bg: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
-  private readonly hint: Phaser.GameObjects.Text | null;
   private readonly icon: Phaser.GameObjects.Image | null;
   private readonly onClick: () => void;
   private readonly silent: boolean;
@@ -219,13 +216,11 @@ export class Button {
       ox: this.alignLeft ? 0 : 0.5,
       oy: 0.5,
     });
-    this.hint = o.hint ? txt(scene, 0, 0, o.hint, { size: SIZE.micro, color: COLOR.faint, ox: 1, oy: 0.5 }) : null;
     const iconSize = o.iconSize ?? o.h * 0.5;
     this.icon = o.icon ? scene.add.image(0, 0, o.icon).setDisplaySize(iconSize, iconSize) : null;
     const parts: Phaser.GameObjects.GameObject[] = [this.bg];
     if (this.icon) parts.push(this.icon);
     parts.push(this.label);
-    if (this.hint) parts.push(this.hint);
     this.root = scene.add.container(x, y, parts);
     if (o.depth !== undefined) this.root.setDepth(o.depth);
     this.bg.setInteractive({ useHandCursor: true });
@@ -331,7 +326,6 @@ export class Button {
     this.bg.setTexture(this.texture(s)).setDisplaySize(this.w, this.h);
     setColor(this.label, s.text);
     if (this.icon && this.iconTint) this.icon.setTint(s.text);
-    if (this.hint) setColor(this.hint, this.active || this.kind === 'primary' ? s.text : COLOR.faint);
     this.place();
   }
 
@@ -357,7 +351,6 @@ export class Button {
     } else {
       this.label.setPosition(0, dy);
     }
-    if (this.hint) this.hint.setPosition(this.w / 2 - pad, dy);
   }
 }
 

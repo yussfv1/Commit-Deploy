@@ -113,12 +113,12 @@ export class ResultsScene extends Phaser.Scene {
       if (next) this.go('Game', { levelId: next.id });
     };
     if (next) {
-      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.next'), kind: 'primary', size: SIZE.body, hint: 'Enter', depth: d + 2, onClick: toNext });
-      new Button(this, left + PANEL_W - PAD - 180 - 12 - 70, by, { w: 140, h: 44, label: t('results.retry'), hint: 'R', depth: d + 2, onClick: retry });
+      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.next'), kind: 'primary', size: SIZE.body, depth: d + 2, onClick: toNext });
+      new Button(this, left + PANEL_W - PAD - 180 - 12 - 70, by, { w: 140, h: 44, label: t('results.retry'), depth: d + 2, onClick: retry });
     } else {
-      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.retry'), kind: 'primary', size: SIZE.body, hint: 'R', depth: d + 2, onClick: retry });
+      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.retry'), kind: 'primary', size: SIZE.body, depth: d + 2, onClick: retry });
     }
-    new Button(this, x + 70, by, { w: 140, h: 44, label: t('results.levels'), kind: 'quiet', hint: 'Esc', depth: d + 2, onClick: toLevels });
+    new Button(this, x + 70, by, { w: 140, h: 44, label: t('results.levels'), kind: 'quiet', depth: d + 2, onClick: toLevels });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;
@@ -128,7 +128,7 @@ export class ResultsScene extends Phaser.Scene {
       }
       if (ev.code === 'Enter' || ev.code === 'NumpadEnter') (next ? toNext : retry)();
       else if (ev.code === 'KeyR') retry();
-      else if (ev.code === 'Escape') toLevels();
+      else if (ev.code === 'Escape' || ev.code === 'KeyM') toLevels();
     });
 
     if (r.offerHint && !r.won) this.askHint(levelIndex(r.levelId), d + 10);
@@ -142,8 +142,8 @@ export class ResultsScene extends Phaser.Scene {
     const yes = (): void => this.showHint(index, depth);
     const no = (): void => this.closeHint();
     this.hintWindow(depth, t('hint.ask'), body, [
-      { label: t('hint.yes'), hint: 'Enter', primary: true, onClick: yes },
-      { label: t('hint.no'), hint: 'Esc', primary: false, onClick: no },
+      { label: t('hint.yes'), primary: true, onClick: yes },
+      { label: t('hint.no'), primary: false, onClick: no },
     ]);
     this.modalKey = (ev) => {
       if (ev.code === 'Enter' || ev.code === 'NumpadEnter') yes();
@@ -156,7 +156,7 @@ export class ResultsScene extends Phaser.Scene {
     const key = hintKey(index);
     const body = txt(this, 0, 0, i18n.has(key) ? t(key) : t('hint.generic'), { size: SIZE.body, color: COLOR.text, wrap: HINT_W - PAD * 2, lineSpacing: 4 });
     const ok = (): void => this.closeHint();
-    this.hintWindow(depth, t('hint.title'), body, [{ label: t('hint.ok'), hint: 'Enter', primary: true, onClick: ok }]);
+    this.hintWindow(depth, t('hint.title'), body, [{ label: t('hint.ok'), primary: true, onClick: ok }]);
     this.modalKey = (ev) => {
       if (ev.code === 'Enter' || ev.code === 'NumpadEnter' || ev.code === 'Escape') ok();
     };
@@ -167,7 +167,7 @@ export class ResultsScene extends Phaser.Scene {
     depth: number,
     title: string,
     body: Phaser.GameObjects.Text,
-    buttons: { label: string; hint: string; primary: boolean; onClick: () => void }[],
+    buttons: { label: string; primary: boolean; onClick: () => void }[],
   ): void {
     const h = PAD + 34 + body.height + 28 + 44 + PAD;
     const top = Math.round(H / 2 - h / 2);
@@ -187,7 +187,6 @@ export class ResultsScene extends Phaser.Scene {
         label: b.label,
         kind: b.primary ? 'primary' : 'quiet',
         size: SIZE.body,
-        hint: b.hint,
         depth: depth + 2,
         onClick: b.onClick,
       });

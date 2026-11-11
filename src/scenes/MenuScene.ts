@@ -62,7 +62,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // Под «Об игре»: коротко, что делать в игре, и главные горячие клавиши на поле.
-    // (В меню паузы R и M по-прежнему «заново» и «уровни».)
+    // (R «заново» — в меню паузы и в итогах, M «к уровням» работает и на поле.)
     txt(this, X0, 540, t('menu.howTitle'), { size: SIZE.micro, color: COLOR.faint, caps: true });
     const how = txt(this, X0, 558, t('menu.how'), { size: SIZE.small, color: COLOR.dim, wrap: 400, lineSpacing: 3 });
     const keysY = Math.round(558 + how.height + 20);
