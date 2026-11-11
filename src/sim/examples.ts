@@ -50,7 +50,7 @@ const press: LevelData = {
   titleKey: 'level.demo2.title',
   width: 12,
   height: 5,
-  timeLimit: 120,
+  timeLimit: 60,
   target: 12,
   targetItem: 'plate',
   energy: 6,
@@ -69,7 +69,7 @@ const press: LevelData = {
     { x: 8, y: 2 },
   ],
   starEnergy: 6,
-  starTimeLeft: 30,
+  starTimeLeft: 15,
   seed: 2,
 };
 
@@ -78,7 +78,7 @@ const blind: LevelData = {
   ...press,
   id: 'demo3',
   titleKey: 'level.demo3.title',
-  timeLimit: 150,
+  timeLimit: 100,
   target: 14,
   energy: 8,
   allowedOps: ALL_OPS,
@@ -94,8 +94,8 @@ const takt: LevelData = {
   titleKey: 'level.demo4.title',
   width: 14,
   height: 5,
-  timeLimit: 180,
-  target: 8,
+  timeLimit: 120,
+  target: 12,
   targetItem: 'cell',
   energy: 14,
   robotCost: 3,
@@ -116,7 +116,7 @@ const takt: LevelData = {
     { x: 10, y: 2 },
   ],
   starEnergy: 12,
-  starTimeLeft: 40,
+  starTimeLeft: 20,
   seed: 4,
 };
 

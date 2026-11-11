@@ -318,6 +318,55 @@ describe('сохранение и повторяемость', () => {
   });
 });
 
+describe('уровни-примеры: эталонные решения', () => {
+  /** Поставить роботов с готовыми программами, запустить и прожить отведённое время. */
+  const play = (index: number, robots: [program: string, dock: number][]) => {
+    const sim = new Simulation();
+    sim.loadLevel(EXAMPLE_LEVELS[index], EXAMPLE_DEFS);
+    for (const [program, dock] of robots) deploy(sim, program, dock);
+    sim.start();
+    sim.advanceTicks(EXAMPLE_LEVELS[index].timeLimit * 20 + 20);
+    return sim.snapshot();
+  };
+
+  it('1 · Первый урок: один робот носит руду', () => {
+    expect(play(0, [['L T R7 P L6', 0]])).toMatchObject({ mode: 'won', stars: 3, misses: 0 });
+  });
+
+  it('2 · Пресс: подающий и забирающий в одном такте', () => {
+    expect(play(1, [['L T R4 U P L3 W2', 0], ['L3 U T R5 P L2', 1]])).toMatchObject({ mode: 'won', stars: 3 });
+  });
+
+  it('2 · Пресс: одному роботу времени не хватает', () => {
+    expect(play(1, [['L T R4 U P W7 T R5 P L8', 0]])).toMatchObject({ mode: 'lost', misses: 0 });
+  });
+
+  it('3 · Слепой робот: двое с датчиками успевают, один — нет', () => {
+    expect(play(2, [['L T R4 U S P L3', 0], ['L3 U S T R5 P L2', 1]])).toMatchObject({ mode: 'won', misses: 0 });
+    expect(play(2, [['L T R4 U S P S T R5 S P L8', 0]]).mode).toBe('lost');
+  });
+
+  it('4 · Такт: три робота с датчиками собирают ячейки', () => {
+    const line: [string, number][] = [
+      ['L S T R3 U S P L2', 0], // руда → пресс
+      ['L2 U S T R4 D S P L2', 1], // пластина → сборщик
+      ['L2 U S T D S P S T R4 S P L2', 2], // топливо → сборщик, ячейка → стол
+    ];
+    expect(play(3, line)).toMatchObject({ mode: 'won', stars: 3, misses: 0 });
+  });
+
+  it('5 · Окно запуска: та же линия держит несколько запусков', () => {
+    const sim = new Simulation();
+    sim.loadLevel(EXAMPLE_LEVELS[4], EXAMPLE_DEFS);
+    deploy(sim, 'L S T R3 U S P L2', 0);
+    deploy(sim, 'L2 U S T R4 D S P L2', 1);
+    deploy(sim, 'L2 U S T D S P S T R4 S P L2', 2);
+    sim.start();
+    sim.advanceTicks(45 * 20 * 5);
+    expect(sim.snapshot()).toMatchObject({ mode: 'running', launches: 5, energy: 22 });
+  });
+});
+
 describe('стресс', () => {
   it('10 минут игры на 8 роботах: без сбоев и быстро', () => {
     const sim = new Simulation();
