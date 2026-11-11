@@ -9,6 +9,7 @@ import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
 import { txt } from '../ui/widgets';
 import { enter } from './flow';
+import { STRESS_ID, isStressRun } from './stress';
 
 const BAR_W = 320;
 
@@ -45,6 +46,8 @@ export class BootScene extends Phaser.Scene {
       // Что бы ни случилось с файлами, игра запускается на нарисованных кодом заглушках.
     }
     makeTextures(this);
-    this.scene.start('Menu');
+    // ?stress в адресе — сразу проверка производительности, без меню.
+    if (isStressRun()) this.scene.start('Game', { levelId: STRESS_ID });
+    else this.scene.start('Menu');
   }
 }

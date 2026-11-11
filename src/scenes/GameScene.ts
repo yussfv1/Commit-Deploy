@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { Simulation } from '../sim';
 import { OPERATOR_ID } from '../types';
 import type { Block, FailReason, LevelData, MachineType, SimEvent, SimSnapshot, TeachInput } from '../types';
+import { getRenderScale } from '../render/display';
 import { FieldView } from '../render/field';
 import type { LoopSpec } from '../render/loopLayer';
 import { BOTTOM, DEPTH, FIELD, PANEL, TOP_H, fieldOrigin } from '../render/layout';
@@ -12,8 +13,9 @@ import { iconKey, tileKey } from '../render/textures';
 import { audio, stepRate } from '../ui/audio';
 import type { SfxName } from '../ui/audio';
 import { BottomBar } from '../ui/bottomBar';
+import { FrameStats } from '../ui/frameStats';
 import { hints } from '../ui/hints';
-import { t } from '../ui/i18n';
+import { num, t } from '../ui/i18n';
 import { levelById, levelIndex, levels, machineDefs } from '../ui/levels';
 import { changeWait, programSteps, removeBlock, toggleSense } from '../ui/programModel';
 import { SidePanel } from '../ui/sidePanel';
@@ -28,6 +30,7 @@ import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setText, txt } from '../ui/widgets';
 import { enter, go } from './flow';
+import { STRESS_ID, deployStress, stressLevel } from './stress';
 import type { ResultsData } from './ResultsScene';
 
 /** Если в уровне нет своего обучения, первый уровень ведёт игрока этим маршрутом (как в брифе роли B). */
@@ -97,6 +100,8 @@ export class GameScene extends Phaser.Scene {
   private telemetryOpen = false;
   private telemetry!: TelemetryPanel;
   private fps!: Phaser.GameObjects.Text;
+  private frames = new FrameStats();
+  private fpsAt = 0;
   private ending: 'none' | 'launch' | 'done' = 'none';
   private stars = 0;
   private lastRepeat = 0;
@@ -122,7 +127,9 @@ export class GameScene extends Phaser.Scene {
     this.pendingPath = { sig: '', spec: null };
     this.countdown = null;
 
-    const level = levelById(data?.levelId ?? '') ?? levels()[0];
+    const stress = data?.levelId === STRESS_ID;
+    this.frames = new FrameStats();
+    const level = stress ? stressLevel() : (levelById(data?.levelId ?? '') ?? levels()[0]);
     this.level = level;
     this.sim = new Simulation();
     try {
@@ -185,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     // Стрелка выше панелей: она показывает и на кнопки «Готово», «Копия» и «Старт».
     this.tutArrow = this.add.image(0, 0, 'tut_arrow').setDisplaySize(30, 36).setDepth(DEPTH.uiTop).setVisible(false);
 
-    this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.micro, color: COLOR.dim }).setDepth(DEPTH.debug).setVisible(false);
+    this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointerDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
@@ -193,11 +200,20 @@ export class GameScene extends Phaser.Scene {
     // Tab не должен уводить фокус из игры.
     this.input.keyboard?.addCapture('TAB,SPACE,UP,DOWN,LEFT,RIGHT');
     audio.music('shift');
+    if (stress) {
+      // Проверка производительности: 8 роботов, ×4, счётчик кадров сразу виден.
+      deployStress(this.sim);
+      this.sim.start();
+      this.speed = 4;
+      this.fps.setVisible(true);
+      this.snap = this.sim.snapshot();
+    }
     this.ready = true;
   }
 
-  override update(_time: number, delta: number): void {
+  override update(time: number, delta: number): void {
     if (!this.ready) return;
+    this.frames.add(delta, time);
     const dt = Math.min(0.1, delta / 1000);
     const running = this.snap.mode === 'running' && this.ending === 'none';
     const events = this.sim.step(running ? dt * this.speed : 0);
@@ -219,7 +235,11 @@ export class GameScene extends Phaser.Scene {
     this.tint.setVisible(teach);
     this.banner.setVisible(teach);
     this.updateTutorial(s);
-    if (this.fps.visible) setText(this.fps, `${Math.round(this.game.loop.actualFps)} FPS`);
+    if (this.fps.visible && time - this.fpsAt > 500) {
+      this.fpsAt = time;
+      const f = this.frames.summary();
+      setText(this.fps, t('debug.fps', { fps: Math.round(f.fps), low: Math.round(f.low), ms: num(f.ms), scale: num(getRenderScale(), 2) }));
+    }
   }
 
   // ---------- выбор и ввод ----------
