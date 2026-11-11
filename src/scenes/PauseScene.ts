@@ -37,10 +37,11 @@ export class PauseScene extends Phaser.Scene {
     const w = PANEL_W - PAD * 2;
     const row = (i: number): number => top + first + i * STEP;
     const item = { w, h: ROW_H, size: SIZE.body, alignLeft: true, iconTint: true, depth: d + 2 };
-    new Button(this, W / 2, row(0), { ...item, label: t('pause.resume'), icon: iconKey('play'), kind: 'primary', hint: 'Esc', onClick: () => this.resume() });
-    new Button(this, W / 2, row(1), { ...item, label: t('pause.restart'), icon: iconKey('restart'), hint: 'R', onClick: () => this.restart() });
+    // Подписей клавиш тут нет: Esc, R и M перечислены в главном меню, а сами клавиши работают как раньше.
+    new Button(this, W / 2, row(0), { ...item, label: t('pause.resume'), icon: iconKey('play'), kind: 'primary', onClick: () => this.resume() });
+    new Button(this, W / 2, row(1), { ...item, label: t('pause.restart'), icon: iconKey('restart'), onClick: () => this.restart() });
     new Button(this, W / 2, row(2), { ...item, label: t('pause.settings'), icon: iconKey('gear'), onClick: () => this.settings() });
-    new Button(this, W / 2, row(3), { ...item, label: t('pause.exit'), icon: iconKey('levels'), hint: 'M', onClick: () => this.exit() });
+    new Button(this, W / 2, row(3), { ...item, label: t('pause.exit'), icon: iconKey('levels'), onClick: () => this.exit() });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;

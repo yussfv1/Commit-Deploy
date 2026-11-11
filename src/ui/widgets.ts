@@ -109,6 +109,20 @@ export function rule(scene: Phaser.Scene, x: number, y: number, w: number, h = 1
   return scene.add.rectangle(x, y, w, h, color).setOrigin(0, 0);
 }
 
+/**
+ * Клавиша-«колпачок» и подпись справа: [Esc] меню. x — левый край, y — середина строки.
+ * Возвращает занятую ширину, чтобы ставить подсказки подряд.
+ */
+export function keyHint(scene: Phaser.Scene, x: number, y: number, key: string, label: string): number {
+  const k = txt(scene, 0, y, key, { size: SIZE.micro, mono: true, color: COLOR.text, ox: 0.5, oy: 0.5 });
+  const w = Math.max(26, Math.ceil(k.width) + 14);
+  plate(scene, x + w / 2, y, w, 22, { fill: COLOR.raised, stroke: COLOR.rule, radius: RADIUS.chip });
+  k.setX(x + w / 2);
+  scene.children.bringToTop(k);
+  const l = txt(scene, x + w + 8, y, label, { size: SIZE.small, color: COLOR.dim, oy: 0.5 });
+  return w + 8 + Math.ceil(l.width);
+}
+
 // ---------- кнопка ----------
 
 /**

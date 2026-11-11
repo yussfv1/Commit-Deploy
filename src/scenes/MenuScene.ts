@@ -9,7 +9,7 @@ import { t } from '../ui/i18n';
 import { levels } from '../ui/levels';
 import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
-import { Button, rule, txt } from '../ui/widgets';
+import { Button, keyHint, rule, txt } from '../ui/widgets';
 import { enter, go, leaving } from './flow';
 
 const X0 = 88;
@@ -30,16 +30,16 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLOR.page);
 
     if (this.textures.exists(iconKey('logo'))) {
-      const logo = this.add.image(X0, 132, iconKey('logo')).setOrigin(0, 0);
+      const logo = this.add.image(X0, 112, iconKey('logo')).setOrigin(0, 0);
       logo.setScale(Math.min(400 / logo.width, 96 / logo.height));
     } else {
-      txt(this, X0 - 4, 124, 'T-MINUS', { size: SIZE.display + 8, bold: true });
+      txt(this, X0 - 4, 108, 'T-MINUS', { size: SIZE.display + 8, bold: true });
     }
     txt(this, X0, 212, t('menu.subtitle'), { size: SIZE.title, color: COLOR.text });
     txt(this, X0, 248, t('menu.tagline'), { size: SIZE.body, color: COLOR.dim, wrap: 400, lineSpacing: 4 });
 
     const play = (): void => go(this, 'LevelSelect');
-    new Button(this, X0 + COL / 2, 380, { w: COL, h: 52, label: t('menu.play'), kind: 'primary', size: SIZE.title, hint: 'Enter', onClick: play });
+    new Button(this, X0 + COL / 2, 380, { w: COL, h: 52, label: t('menu.play'), kind: 'primary', size: SIZE.title, onClick: play });
     new Button(this, X0 + COL / 2, 444, {
       w: COL,
       h: 44,
@@ -58,6 +58,20 @@ export class MenuScene extends Phaser.Scene {
       alignLeft: true,
       onClick: () => go(this, 'Credits'),
     });
+
+    // Под «Об игре»: коротко, что делать в игре, и главные горячие клавиши.
+    // Сами клавиши работают как раньше (Esc — в игре, R и M — в меню паузы); здесь они собраны в одном месте.
+    txt(this, X0, 540, t('menu.howTitle'), { size: SIZE.micro, color: COLOR.faint, caps: true });
+    const how = txt(this, X0, 558, t('menu.how'), { size: SIZE.small, color: COLOR.dim, wrap: 400, lineSpacing: 3 });
+    const keysY = Math.round(558 + how.height + 20);
+    let kx = X0;
+    for (const [key, label] of [
+      ['Esc', t('keys.esc')],
+      ['R', t('keys.r')],
+      ['M', t('keys.m')],
+    ] as const) {
+      kx += keyHint(this, kx, keysY, key, label) + 22;
+    }
 
     // Живая линия справа и подпись к ней.
     const level = { w: 14, h: 5 };
