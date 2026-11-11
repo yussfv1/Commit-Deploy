@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Block } from '../../types';
-import { changeWait, codeLineAt, hasSenseBefore, programSteps, removeBlock, sameProgram, toCode, toggleSense } from '../programModel';
+import { changeWait, codeLineAt, hasSenseBefore, parseProgram, programSteps, removeBlock, sameProgram, toCode, toggleSense } from '../programModel';
 
 const R: Block = { op: 'right' };
 const L: Block = { op: 'left' };
@@ -74,5 +74,13 @@ describe('программа как код', () => {
     expect(codeLineAt(lines, 1)).toBe(0);
     expect(codeLineAt(lines, 2)).toBe(1);
     expect(codeLineAt(lines, -1)).toBe(-1);
+  });
+});
+
+describe('короткая запись программы', () => {
+  it('разворачивает L2 в два шага и понимает действия и датчик', () => {
+    expect(parseProgram('L2 S T R P')).toEqual([L, L, S, T, R, P]);
+    expect(parseProgram('P W4 T')).toEqual([P, W(4), T]);
+    expect(parseProgram('  X R0 R ')).toEqual([R]);
   });
 });

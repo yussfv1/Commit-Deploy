@@ -5,10 +5,13 @@ import { H } from '../render/layout';
 import { makeTextures } from '../render/textures';
 import { audio } from '../ui/audio';
 import { i18n, t } from '../ui/i18n';
+import { levels } from '../ui/levels';
 import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
 import { txt } from '../ui/widgets';
 import { enter } from './flow';
+import { isPitchRun, pitchLevel } from './pitch';
+import { STRESS_ID, isStressRun } from './stress';
 
 const BAR_W = 320;
 
@@ -45,6 +48,10 @@ export class BootScene extends Phaser.Scene {
       // Что бы ни случилось с файлами, игра запускается на нарисованных кодом заглушках.
     }
     makeTextures(this);
-    this.scene.start('Menu');
+    // ?stress — сразу проверка производительности, ?pitch — сразу демо для питча; иначе меню.
+    const pitch = isPitchRun() ? pitchLevel(levels()) : null;
+    if (isStressRun()) this.scene.start('Game', { levelId: STRESS_ID });
+    else if (pitch) this.scene.start('Game', { levelId: pitch.id, pitch: true });
+    else this.scene.start('Menu');
   }
 }

@@ -57,7 +57,7 @@ export function createHintCounter(backend: StorageLike | null): HintCounter {
   };
 }
 
-/** Ключ текста подсказки по номеру уровня (0 — первый): hint.level1 … hint.level5. */
+/** Ключ текста подсказки по номеру уровня (0 — первый): hint.level1 … hint.level6. */
 export const hintKey = (levelIndex: number): string => `hint.level${levelIndex + 1}`;
 
 export const hints = createHintCounter(browserStorage());

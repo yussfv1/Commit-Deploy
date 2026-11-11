@@ -3,7 +3,8 @@
 import type Phaser from 'phaser';
 import { Simulation } from '../sim';
 import { EXAMPLE_DEFS, EXAMPLE_LEVELS } from '../sim/examples';
-import type { Block, LevelData, Op } from '../types';
+import type { LevelData } from '../types';
+import { parseProgram } from '../ui/programModel';
 import { FieldView } from './field';
 
 /** Короткая запись программы: L2 — два шага влево, T — взять, P — положить, S — датчик. */
@@ -12,19 +13,6 @@ const PROGRAMS: readonly [string, number][] = [
   ['L2 U S T R4 D S P L2', 1],
   ['L2 U S T D S P S T R4 S P L2', 2],
 ];
-
-const LETTER: Record<string, Op> = { U: 'up', R: 'right', D: 'down', L: 'left', T: 'take', P: 'put', S: 'sense' };
-
-export function parseProgram(text: string): Block[] {
-  const out: Block[] = [];
-  for (const token of text.trim().split(/\s+/)) {
-    const op = LETTER[token[0]];
-    const n = token.length > 1 ? Number(token.slice(1)) : 1;
-    if (!op || !Number.isInteger(n) || n < 1) continue;
-    for (let i = 0; i < n; i++) out.push({ op });
-  }
-  return out;
-}
 
 export class DemoLine {
   readonly view: FieldView;

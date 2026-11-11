@@ -51,6 +51,7 @@ const BOTTOM = PANEL.y + PANEL.h - 16;
 const CODE_LINES = 13;
 
 export class SidePanel {
+  private readonly scene: Phaser.Scene;
   private readonly level: LevelData;
   private readonly strip: BlockStrip;
   private readonly title: Phaser.GameObjects.Text;
@@ -69,6 +70,7 @@ export class SidePanel {
   private shown = '';
 
   constructor(scene: Phaser.Scene, level: LevelData, handlers: PanelHandlers) {
+    this.scene = scene;
     this.level = level;
     const d = DEPTH.ui;
     scene.add.rectangle(PANEL.x, PANEL.y, PANEL.w, PANEL.h, COLOR.chrome).setOrigin(0, 0).setDepth(d);
@@ -85,9 +87,7 @@ export class SidePanel {
     this.strip.setPickHandler((i) => handlers.pick(i));
 
     this.codeBar = scene.add.rectangle(X - 8, 0, 3, 18, COLOR.text).setOrigin(0, 0).setDepth(d + 1);
-    for (let i = 0; i < CODE_LINES; i++) {
-      this.code.push(txt(scene, X, TOP + 64 + i * 20, '', { size: SIZE.small, mono: true }).setDepth(d + 1));
-    }
+    // Строки «как кода» создаются при первом нажатии кнопки: пока они не нужны, игра не тратит на них время при входе.
 
     const half = (CW - 8) / 2;
     const at = (col: number, row: number, wide = false): { x: number; y: number; w: number } => ({
@@ -117,10 +117,17 @@ export class SidePanel {
     this.sellButton = make(at(0, 4, true), t('machine.sell'), () => handlers.sell(), 'danger');
   }
 
-  /** Где кнопка, на которую показывает стрелка обучения. */
-  anchor(id: 'finish' | 'copy'): { x: number; y: number } | null {
+  /** Центр и размер кнопки, которую подсвечивает обучение. В показе «копия» — кнопка копии в панели показа. */
+  anchor(id: 'finish' | 'copy'): { x: number; y: number; w: number; h: number } | null {
     const b = id === 'finish' ? this.finish : this.teachCopy.root.visible ? this.teachCopy : this.robotButtons.copy;
-    return b.root.visible ? { x: b.x, y: b.y - 17 } : null;
+    return b.root.visible ? { x: b.x, y: b.y, w: b.w, h: b.h } : null;
+  }
+
+  private ensureCode(): void {
+    if (this.code.length > 0) return;
+    for (let i = 0; i < CODE_LINES; i++) {
+      this.code.push(txt(this.scene, X, TOP + 64 + i * 20, '', { size: SIZE.small, mono: true }).setDepth(DEPTH.ui + 1));
+    }
   }
 
   update(snap: SimSnapshot, state: PanelState): void {
@@ -146,6 +153,7 @@ export class SidePanel {
     this.icon.setVisible(kind === 'machine');
     this.title.setX(robot ? X + 20 : kind === 'machine' ? X + 30 : X);
     this.strip.setVisible(kind === 'teach' || (robot && !code));
+    if (robot && code) this.ensureCode();
     for (const line of this.code) line.setVisible(robot && code);
     this.codeBar.setVisible(false);
     this.body.setVisible(kind !== 'robot');

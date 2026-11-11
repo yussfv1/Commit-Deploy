@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import { Simulation } from '../sim';
 import { OPERATOR_ID, TILE } from '../types';
 import type { Block, FailReason, LevelData, MachineType, SimEvent, SimSnapshot, TeachInput } from '../types';
+import { getRenderScale } from '../render/display';
 import { FieldView } from '../render/field';
 import type { HighlightKind } from '../render/field';
 import type { LoopSpec } from '../render/loopLayer';
@@ -14,8 +15,9 @@ import { audio, stepRate } from '../ui/audio';
 import type { SfxName } from '../ui/audio';
 import { BottomBar } from '../ui/bottomBar';
 import { FieldStrip } from '../ui/fieldStrip';
+import { FrameStats } from '../ui/frameStats';
 import { hints } from '../ui/hints';
-import { t } from '../ui/i18n';
+import { num, t } from '../ui/i18n';
 import { levelById, levelIndex, levels, machineDefs } from '../ui/levels';
 import { changeWait, programSteps, removeBlock, toggleSense } from '../ui/programModel';
 import { SidePanel } from '../ui/sidePanel';
@@ -25,11 +27,13 @@ import { COLOR, SIZE, robotColor } from '../ui/theme';
 import { TopBar } from '../ui/topBar';
 import type { Speed } from '../ui/topBar';
 import { TelemetryPanel } from '../ui/telemetryPanel';
-import { bottleneckSpot } from '../ui/telemetryModel';
+import { bottleneckHintKey, bottleneckSpot } from '../ui/telemetryModel';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setColor, setText, txt } from '../ui/widgets';
 import { enter, go } from './flow';
+import { preparePitch } from './pitch';
+import { STRESS_ID, deployStress, stressLevel } from './stress';
 import type { ResultsData } from './ResultsScene';
 
 /** Если в уровне нет своего обучения, первый уровень ведёт игрока этим маршрутом (как в брифе роли B). */
@@ -97,8 +101,14 @@ export class GameScene extends Phaser.Scene {
   private tutBg!: Phaser.GameObjects.Image;
   private tutArrow!: Phaser.GameObjects.Image;
   private telemetryOpen = false;
-  private telemetry!: TelemetryPanel;
+  /** Панель телеметрии создаётся при первом Tab: так вход в уровень быстрее на слабом ноутбуке. */
+  private telemetry: TelemetryPanel | null = null;
+  /** Последний снимок настоящего мира: во время показа верхняя полоса показывает его, а не часы копии. */
+  private realSnap: SimSnapshot | null = null;
+  private tutFrame!: Phaser.GameObjects.Graphics;
   private fps!: Phaser.GameObjects.Text;
+  private frames = new FrameStats();
+  private fpsAt = 0;
   private ending: 'none' | 'launch' | 'done' = 'none';
   private stars = 0;
   private lastRepeat = 0;
@@ -118,7 +128,7 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  create(data: { levelId?: string }): void {
+  create(data: { levelId?: string; pitch?: boolean }): void {
     this.ready = false;
     enter(this);
     this.speed = 1;
@@ -133,7 +143,9 @@ export class GameScene extends Phaser.Scene {
     this.solo = null;
     this.teachCopies = 0;
 
-    const level = levelById(data?.levelId ?? '') ?? levels()[0];
+    const stress = data?.levelId === STRESS_ID;
+    this.frames = new FrameStats();
+    const level = stress ? stressLevel() : (levelById(data?.levelId ?? '') ?? levels()[0]);
     this.level = level;
     this.sim = new Simulation();
     try {
@@ -193,10 +205,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
     this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, FIELD.y + 64, DEPTH.toast);
-    this.telemetry = new TelemetryPanel(this, (robotId) => {
-      this.setView({ kind: 'robot', robotId });
-      audio.play('click');
-    });
+    this.telemetry = null;
+    this.realSnap = null;
 
     this.ghost = this.add.container(0, 0).setDepth(DEPTH.marker).setVisible(false);
 
@@ -206,10 +216,12 @@ export class GameScene extends Phaser.Scene {
     this.tutBg = this.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
     const tutLabel = txt(this, 16, 14, t('tutorial.label'), { size: SIZE.micro, color: COLOR.dim, caps: true });
     this.tutCard = this.add.container(FIELD.x + 16, 0, [this.tutBg, tutLabel, this.tutText]).setDepth(DEPTH.marker).setVisible(false);
-    // Стрелка выше панелей: она показывает и на кнопки «Готово», «Копия» и «Старт».
+    // Стрелка показывает клетку на карте; кнопку («Готово», «Копия», «Старт») обучение обводит рамкой —
+    // стрелка над кнопкой налезала бы на соседнюю.
     this.tutArrow = this.add.image(0, 0, 'tut_arrow').setDisplaySize(30, 36).setDepth(DEPTH.uiTop).setVisible(false);
+    this.tutFrame = this.add.graphics().setDepth(DEPTH.uiTop).setVisible(false);
 
-    this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.micro, color: COLOR.dim }).setDepth(DEPTH.debug).setVisible(false);
+    this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointerDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
@@ -220,11 +232,28 @@ export class GameScene extends Phaser.Scene {
     // Машины, которых на прошлых уровнях не было, один раз мигают сами — игрок сразу видит, что нового.
     const fresh = FieldStrip.fresh(level, levels());
     if (fresh.length > 0) this.time.delayedCall(600, () => fresh.forEach((k) => this.field.highlight(k, 2500)));
+    if (stress) {
+      // Проверка производительности: 8 роботов, ×4, счётчик кадров сразу виден.
+      deployStress(this.sim);
+      this.sim.start();
+      this.speed = 4;
+      this.fps.setVisible(true);
+    } else if (data?.pitch) {
+      // Демо для питча: слепой робот уже работает и промахивается, панель сразу показывает его программу.
+      const robot = preparePitch(this.sim);
+      if (robot !== null) this.view = { kind: 'robot', robotId: robot };
+    }
+    if (stress || data?.pitch) {
+      // События подготовки (появление роботов, первые шаги) уже в прошлом — не озвучиваем их разом.
+      this.sim.step(0);
+      this.snap = this.sim.snapshot();
+    }
     this.ready = true;
   }
 
-  override update(_time: number, delta: number): void {
+  override update(time: number, delta: number): void {
     if (!this.ready) return;
+    this.frames.add(delta, time);
     const dt = Math.min(0.1, delta / 1000);
     const running = this.snap.mode === 'running' && this.ending === 'none';
     const events = this.sim.step(running ? dt * this.speed : 0);
@@ -242,8 +271,10 @@ export class GameScene extends Phaser.Scene {
     this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
     this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined, solo });
     this.strip.update(s, this.solo);
-    this.telemetry.update(s, selectedRobot);
-    this.top.update(s, this.speed);
+    this.telemetry?.update(s, selectedRobot);
+    const teaching = s.mode === 'teach';
+    if (!teaching) this.realSnap = s;
+    this.top.update(teaching && this.realSnap ? this.realSnap : s, this.speed, teaching);
     this.panel.update(s, {
       view: this.view,
       pick: this.pick,
@@ -256,7 +287,11 @@ export class GameScene extends Phaser.Scene {
     this.tint.setVisible(teach);
     this.banner.setVisible(teach);
     this.updateTutorial(s);
-    if (this.fps.visible) setText(this.fps, `${Math.round(this.game.loop.actualFps)} FPS`);
+    if (this.fps.visible && time - this.fpsAt > 500) {
+      this.fpsAt = time;
+      const f = this.frames.summary();
+      setText(this.fps, t('debug.fps', { fps: Math.round(f.fps), low: Math.round(f.low), ms: num(f.ms), scale: num(getRenderScale(), 2) }));
+    }
   }
 
   // ---------- выбор и ввод ----------
@@ -294,7 +329,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const w = this.worldPoint(p);
-    if (!this.onField(w.x, w.y) || this.telemetry.covers(w.y)) return;
+    if (!this.onField(w.x, w.y) || this.telemetry?.covers(w.y)) return;
     // Полоса над картой (легенда, выбор петель) — свои кнопки, это не клик по полю.
     if (w.y < STRIP.y + STRIP.h + 4) return;
     const s = this.snap;
@@ -444,7 +479,13 @@ export class GameScene extends Phaser.Scene {
 
   private setTelemetry(open: boolean): void {
     this.telemetryOpen = open;
-    this.telemetry.setOpen(open);
+    if (open && !this.telemetry) {
+      this.telemetry = new TelemetryPanel(this, (robotId) => {
+        this.setView({ kind: 'robot', robotId });
+        audio.play('click');
+      });
+    }
+    this.telemetry?.setOpen(open);
   }
 
   private fail(reason: FailReason): void {
@@ -468,6 +509,8 @@ export class GameScene extends Phaser.Scene {
     this.toggleBuy(null);
     this.teachCopies = 0;
     this.teachReplace = replace !== undefined;
+    // Во время показа нужна вся карта: панель телеметрии закрываем.
+    this.setTelemetry(false);
     this.setView({ kind: 'teach' });
     audio.play('click');
   }
@@ -820,7 +863,7 @@ export class GameScene extends Phaser.Scene {
       misses: s.misses,
       launches: s.launches,
       best,
-      bottleneck: s.bottleneck?.reason ?? null,
+      bottleneckKey: s.bottleneck ? bottleneckHintKey(s.bottleneck, this.level, s) : null,
       offerHint,
     };
     audio.play(won ? 'win' : 'lose');
@@ -844,6 +887,7 @@ export class GameScene extends Phaser.Scene {
     this.tutCard.setVisible(show);
     if (!show || !step) {
       this.tutArrow.setVisible(false);
+      this.tutFrame.setVisible(false);
       return;
     }
     if (this.tutText.text !== t(step.key)) {
@@ -855,6 +899,7 @@ export class GameScene extends Phaser.Scene {
     }
     const target = this.tutorial.target(ctx);
     let at: { x: number; y: number } | null = null;
+    let box: { x: number; y: number; w: number; h: number } | null = null;
     const above = (x: number, y: number): { x: number; y: number } => {
       const c = this.field.screenCenter(x, y);
       return { x: c.x, y: c.y - TILE * 0.69 * this.field.scale };
@@ -862,15 +907,21 @@ export class GameScene extends Phaser.Scene {
     if (target?.kind === 'cell') {
       at = above(target.x, target.y);
     } else if (target?.kind === 'ui') {
-      if (target.id === 'start') at = this.bottom.anchor();
-      else if (target.id === 'finish' || target.id === 'copy') at = this.panel.anchor(target.id);
+      if (target.id === 'start') box = this.bottom.anchor();
+      else if (target.id === 'finish' || target.id === 'copy') box = this.panel.anchor(target.id);
       // Кнопки копии не видно (робот не выбран) — стрелка показывает на робота: R или клик по нему.
-      if (!at && target.id === 'copy') {
+      if (!box && target.id === 'copy') {
         const r = s.robots[s.robots.length - 1];
         if (r) at = above(this.level.docks[r.dock].x, this.level.docks[r.dock].y);
       }
     }
     this.tutArrow.setVisible(at !== null);
     if (at) this.tutArrow.setPosition(at.x, at.y - 18 + Math.sin(this.time.now / 180) * 5);
+    // Рамка вокруг нужной кнопки: светлая, мягко пульсирует, на соседние кнопки не залезает.
+    this.tutFrame.setVisible(box !== null);
+    if (box) {
+      const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(this.time.now / 220));
+      this.tutFrame.clear().lineStyle(2, COLOR.text, pulse).strokeRoundedRect(box.x - box.w / 2 - 3, box.y - box.h / 2 - 3, box.w + 6, box.h + 6, 6);
+    }
   }
 }

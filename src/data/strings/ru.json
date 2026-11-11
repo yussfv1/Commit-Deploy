@@ -315,5 +315,18 @@
 
   "settings.theme": "Тема",
   "settings.theme.dark": "Тёмная",
-  "settings.theme.light": "Светлая"
+  "settings.theme.light": "Светлая",
+
+  "stress.title": "Проверка: 8 роботов, ×4",
+  "debug.fps": "{fps} FPS · худшие кадры {low} FPS · кадр {ms} мс · холст ×{scale}",
+
+  "hud.paused": "Мир на паузе",
+  "bottleneck.saturatedNoBuy": "Машина работает почти без перерыва. Забирай готовое сразу, без лишних ожиданий.",
+  "bottleneck.blockedNoShelf": "Готовое некуда выгрузить. Забирай чаще: сделай копию робота, который разгружает машину.",
+  "bottleneck.missesNoSensor": "Робот промахивается. Подбери ожидание перед действием: «Ждать +» или «Ждать −».",
+  "bottleneck.slowLoopNoEnergy": "Круг слишком длинный. Сократи путь: убери лишние шаги.",
+
+  "bottom.doneLabel": "Итог",
+  "bottom.won": "План выполнен, ракета стартует",
+  "bottom.lost": "Время вышло, план не выполнен"
 }

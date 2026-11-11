@@ -1,7 +1,7 @@
 // Данные для панели телеметрии: полоса последнего круга каждого робота, темп линии и узкое место.
 // Всё считает симуляция (RobotView.timeline, throughput, bottleneck) — здесь только раскладка для экрана.
 import { TICKS_PER_SECOND } from '../types';
-import type { BottleneckReason, MachineType, MachineView, RobotState, RobotView, SimSnapshot, TimelineSegment } from '../types';
+import type { Bottleneck, BottleneckReason, LevelData, MachineType, MachineView, RobotState, RobotView, SimSnapshot, TimelineSegment } from '../types';
 
 export interface RobotBar {
   robotId: number;
@@ -97,4 +97,28 @@ export function telemetrySignature(bars: readonly RobotBar[], loads: readonly Ma
   const robots = bars.map((b) => `${b.robotId}:${b.total}:${b.misses}:${b.parts.map((p) => p.state[0] + p.to).join('')}`);
   const machines = loads.map((m) => `${m.id}:${Math.round(m.load * 100)}`);
   return `${robots.join('|')}#${machines.join('|')}`;
+}
+
+/**
+ * Ключ подсказки к узкому месту, которая не противоречит уровню: «купи вторую» — только если машину можно купить,
+ * «поставь полку» — только если полка есть в покупках, «поставь датчик» — только если датчик разрешён,
+ * «сделай копию» — только если на копию хватает энергии.
+ */
+export function bottleneckHintKey(
+  b: Bottleneck,
+  level: Pick<LevelData, 'buildable' | 'allowedOps'>,
+  s: Pick<SimSnapshot, 'machines' | 'energyLeft' | 'robotCost'>,
+): string {
+  switch (b.reason) {
+    case 'saturated': {
+      const m = b.kind === 'machine' ? s.machines.find((x) => x.id === b.id) : undefined;
+      return m && level.buildable.includes(m.type) ? 'bottleneck.saturated' : 'bottleneck.saturatedNoBuy';
+    }
+    case 'blocked':
+      return level.buildable.includes('shelf') ? 'bottleneck.blocked' : 'bottleneck.blockedNoShelf';
+    case 'misses':
+      return level.allowedOps.includes('sense') ? 'bottleneck.misses' : 'bottleneck.missesNoSensor';
+    case 'slowLoop':
+      return s.energyLeft >= s.robotCost ? 'bottleneck.slowLoop' : 'bottleneck.slowLoopNoEnergy';
+  }
 }
