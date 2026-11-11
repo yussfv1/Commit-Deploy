@@ -1,0 +1,54 @@
+{
+  "id": "level1",
+  "titleKey": "level.demo1.title",
+  "width": 10,
+  "height": 5,
+  "timeLimit": 90,
+  "target": 6,
+  "targetItem": "ore",
+  "energy": 6,
+  "robotCost": 3,
+  "sensorCost": 1,
+  "maxProgram": 40,
+  "allowedOps": [
+    "up",
+    "right",
+    "down",
+    "left",
+    "take",
+    "put",
+    "wait"
+  ],
+  "buildable": [],
+  "machines": [
+    {
+      "type": "depot",
+      "x": 0,
+      "y": 2
+    },
+    {
+      "type": "pad",
+      "x": 9,
+      "y": 2
+    }
+  ],
+  "docks": [
+    {
+      "x": 2,
+      "y": 2
+    }
+  ],
+  "starEnergy": 3,
+  "starTimeLeft": 45,
+  "tutorial": [
+    "tutorial.clickDock",
+    "tutorial.goTo_depot",
+    "tutorial.take",
+    "tutorial.goTo_pad",
+    "tutorial.put",
+    "tutorial.returnDock",
+    "tutorial.finish",
+    "tutorial.start"
+  ],
+  "seed": 1
+}

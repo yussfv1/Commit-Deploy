@@ -1,0 +1,65 @@
+{
+  "id": "level3",
+  "titleKey": "level.demo3.title",
+  "width": 12,
+  "height": 5,
+  "timeLimit": 100,
+  "target": 14,
+  "targetItem": "plate",
+  "energy": 8,
+  "robotCost": 3,
+  "sensorCost": 1,
+  "maxProgram": 40,
+  "allowedOps": [
+    "up",
+    "right",
+    "down",
+    "left",
+    "take",
+    "put",
+    "wait",
+    "sense"
+  ],
+  "buildable": [],
+  "machines": [
+    {
+      "type": "depot",
+      "x": 0,
+      "y": 2
+    },
+    {
+      "type": "press",
+      "x": 5,
+      "y": 1
+    },
+    {
+      "type": "pad",
+      "x": 11,
+      "y": 2
+    }
+  ],
+  "docks": [
+    {
+      "x": 2,
+      "y": 2
+    },
+    {
+      "x": 8,
+      "y": 2
+    }
+  ],
+  "defOverrides": {
+    "press": {
+      "workTimeRange": [
+        1.5,
+        3.5
+      ]
+    }
+  },
+  "starEnergy": 8,
+  "starTimeLeft": 30,
+  "tutorial": [
+    "tutorial.sensor"
+  ],
+  "seed": 3
+}
