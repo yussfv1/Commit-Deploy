@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>T-MINUS · песочница симуляции</title>
+    <style>
+      :root {
+        --bg: #0b1422;
+        --panel: #15223a;
+        --line: #263a5c;
+        --fg: #e7edf6;
+        --muted: #93a4c0;
+        --accent: #ff7a2f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.4 'Segoe UI', system-ui, sans-serif;
+      }
+      header,
+      footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+        color: var(--muted);
+        font-size: 13px;
+        min-height: 40px;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 8px 0 0;
+        letter-spacing: 0.04em;
+      }
+      h1 small {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      button,
+      select {
+        font: inherit;
+        color: var(--fg);
+        background: #1d2f4f;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button.on {
+        background: var(--accent);
+        color: #1a0d03;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      button.go {
+        background: var(--accent);
+        color: #1a0d03;
+        border-color: var(--accent);
+        font-weight: 700;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .sep {
+        width: 1px;
+        align-self: stretch;
+        background: var(--line);
+      }
+      main {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        align-items: flex-start;
+      }
+      #stage {
+        position: relative;
+        flex: none;
+      }
+      canvas {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      #hud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        margin-bottom: 10px;
+        font-variant-numeric: tabular-nums;
+      }
+      #hud b {
+        color: var(--accent);
+        font-size: 18px;
+      }
+      #hint {
+        margin-top: 10px;
+        color: var(--muted);
+        max-width: 900px;
+      }
+      #hint kbd {
+        background: #1d2f4f;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: 0 5px;
+        color: var(--fg);
+      }
+      #toast {
+        position: absolute;
+        left: 50%;
+        top: 12px;
+        transform: translateX(-50%);
+        background: #b3261e;
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-weight: 600;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+      #side {
+        flex: 1;
+        min-width: 300px;
+        display: grid;
+        gap: 10px;
+      }
+      .robot {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--c);
+        border-radius: 4px;
+        padding: 8px 10px;
+        display: grid;
+        gap: 6px;
+      }
+      .robot.sel {
+        border-color: var(--c);
+      }
+      .robot .head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: baseline;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .robot .head strong {
+        color: var(--fg);
+        font-size: 14px;
+      }
+      .blocks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+      }
+      .blk {
+        font: 600 11px/1 Consolas, monospace;
+        padding: 5px 6px;
+        border-radius: 3px;
+        background: #1d2f4f;
+        border: 1px solid var(--line);
+        cursor: pointer;
+      }
+      .blk.now {
+        border-color: var(--c);
+        background: #26406b;
+      }
+      .blk.pick {
+        outline: 2px solid var(--accent);
+      }
+      .blk.sense {
+        color: #ffe066;
+        border-color: #6b5e1f;
+      }
+      .tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .tools button {
+        padding: 3px 8px;
+        font-size: 12px;
+      }
+      .bar {
+        display: flex;
+        height: 8px;
+        border-radius: 2px;
+        overflow: hidden;
+        background: #0b1422;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .empty {
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 4px;
+        padding: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>T-MINUS <small>· песочница симуляции (только для разработки)</small></h1>
+      <select id="level" aria-label="Уровень"></select>
+      <button id="restart">Заново</button>
+      <span class="sep"></span>
+      <button id="start" class="go">СТАРТ</button>
+      <button id="pause">Пауза</button>
+      <button id="s1" class="on">×1</button>
+      <button id="s2">×2</button>
+      <button id="s4">×4</button>
+      <span class="sep"></span>
+      <span id="shop"></span>
+      <span class="sep"></span>
+      <button id="save">Сохранить</button>
+      <button id="load" disabled>Загрузить</button>
+    </header>
+    <main>
+      <section id="stage">
+        <div id="hud"></div>
+        <canvas id="view"></canvas>
+        <div id="toast"></div>
+        <div id="hint"></div>
+      </section>
+      <aside id="side"></aside>
+    </main>
+    <footer id="log"></footer>
+    <script type="module" src="/src/sim/debug/playground.ts"></script>
+  </body>
+</html>
