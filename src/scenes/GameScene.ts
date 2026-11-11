@@ -340,9 +340,11 @@ export class GameScene extends Phaser.Scene {
     if (ev.repeat) return;
     switch (ev.code) {
       case 'Escape':
+        // Esc всегда сразу открывает паузу (шестерёнку). Выбор робота и режим покупки при этом снимаются,
+        // чтобы после «Продолжить» игрок вернулся к чистому полю.
         if (this.buyType) this.toggleBuy(null);
-        else if (this.view.kind !== 'idle') this.setView({ kind: 'idle' });
-        else this.openPause();
+        if (this.view.kind !== 'idle') this.setView({ kind: 'idle' });
+        this.openPause();
         break;
       case 'Space':
         ev.preventDefault();

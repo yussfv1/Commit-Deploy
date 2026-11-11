@@ -60,8 +60,19 @@ export class TopBar {
           onClick: () => handlers.speed(s),
         }),
     );
-    // Пауза — квадратная кнопка с шестерёнкой: так её узнают сразу, как в других играх. Клавиша Esc работает как раньше.
-    new Button(scene, W - 40, MID, { w: 40, h: 32, label: '', icon: iconKey('gear'), iconSize: 22, depth: d, onClick: handlers.pause });
+    // Пауза — шестерёнка с подписью клавиши Esc: так её узнают сразу, как в других играх.
+    new Button(scene, W - 56, MID, {
+      w: 72,
+      h: 32,
+      label: '',
+      icon: iconKey('gear'),
+      iconSize: 22,
+      iconTint: true,
+      alignLeft: true,
+      hint: 'Esc',
+      depth: d,
+      onClick: handlers.pause,
+    });
   }
 
   update(s: SimSnapshot, speed: Speed): void {
