@@ -1,0 +1,30 @@
+{
+  "id": "level6",
+  "titleKey": "level.l6.title",
+  "width": 14,
+  "height": 7,
+  "timeLimit": 0,
+  "target": 2,
+  "targetItem": "cell",
+  "energy": 12,
+  "robotCost": 3,
+  "sensorCost": 1,
+  "maxProgram": 40,
+  "allowedOps": ["up", "right", "down", "left", "take", "put", "wait", "sense"],
+  "buildable": ["shelf", "press"],
+  "machines": [
+    { "type": "depot", "x": 13, "y": 3 },
+    { "type": "press", "x": 9, "y": 2 },
+    { "type": "tank", "x": 5, "y": 2 },
+    { "type": "assembler", "x": 5, "y": 4 },
+    { "type": "pad", "x": 0, "y": 3 }
+  ],
+  "docks": [
+    { "x": 11, "y": 3 },
+    { "x": 7, "y": 3 },
+    { "x": 3, "y": 3 }
+  ],
+  "walls": [[0, 0], [1, 0], [12, 0], [13, 0], [0, 6], [1, 6], [12, 6], [13, 6]],
+  "endless": { "launchEvery": 45, "growBy": 1, "energyPerLaunch": 2 },
+  "seed": 6
+}

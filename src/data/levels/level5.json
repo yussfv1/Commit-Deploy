@@ -1,74 +1,32 @@
 {
   "id": "level5",
-  "titleKey": "level.demo5.title",
+  "titleKey": "level.l5.title",
   "width": 14,
-  "height": 5,
-  "timeLimit": 0,
-  "target": 2,
+  "height": 7,
+  "timeLimit": 120,
+  "target": 12,
   "targetItem": "cell",
-  "energy": 12,
+  "energy": 14,
   "robotCost": 3,
   "sensorCost": 1,
   "maxProgram": 40,
-  "allowedOps": [
-    "up",
-    "right",
-    "down",
-    "left",
-    "take",
-    "put",
-    "wait",
-    "sense"
-  ],
-  "buildable": [
-    "shelf",
-    "press"
-  ],
+  "allowedOps": ["up", "right", "down", "left", "take", "put", "wait", "sense"],
+  "buildable": ["shelf", "press"],
   "machines": [
-    {
-      "type": "depot",
-      "x": 0,
-      "y": 2
-    },
-    {
-      "type": "press",
-      "x": 4,
-      "y": 1
-    },
-    {
-      "type": "tank",
-      "x": 8,
-      "y": 1
-    },
-    {
-      "type": "assembler",
-      "x": 8,
-      "y": 3
-    },
-    {
-      "type": "pad",
-      "x": 13,
-      "y": 2
-    }
+    { "type": "depot", "x": 0, "y": 3 },
+    { "type": "press", "x": 4, "y": 2 },
+    { "type": "tank", "x": 8, "y": 2 },
+    { "type": "assembler", "x": 8, "y": 4 },
+    { "type": "pad", "x": 13, "y": 3 }
   ],
   "docks": [
-    {
-      "x": 2,
-      "y": 2
-    },
-    {
-      "x": 6,
-      "y": 2
-    },
-    {
-      "x": 10,
-      "y": 2
-    }
+    { "x": 2, "y": 3 },
+    { "x": 6, "y": 3 },
+    { "x": 10, "y": 3 }
   ],
-  "endless": {
-    "launchEvery": 45,
-    "growBy": 1,
-    "energyPerLaunch": 2
-  },
+  "walls": [[2, 0], [6, 0], [10, 0], [2, 6], [6, 6], [10, 6]],
+  "starEnergy": 12,
+  "starTimeLeft": 20,
+  "tutorial": ["tutorial.telemetry"],
   "seed": 5
 }

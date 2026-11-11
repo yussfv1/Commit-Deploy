@@ -1,65 +1,28 @@
 {
   "id": "level3",
-  "titleKey": "level.demo3.title",
-  "width": 12,
-  "height": 5,
-  "timeLimit": 100,
-  "target": 14,
+  "titleKey": "level.l3.title",
+  "width": 9,
+  "height": 7,
+  "timeLimit": 70,
+  "target": 12,
   "targetItem": "plate",
-  "energy": 8,
+  "energy": 6,
   "robotCost": 3,
   "sensorCost": 1,
   "maxProgram": 40,
-  "allowedOps": [
-    "up",
-    "right",
-    "down",
-    "left",
-    "take",
-    "put",
-    "wait",
-    "sense"
-  ],
+  "allowedOps": ["up", "right", "down", "left", "take", "put", "wait"],
   "buildable": [],
   "machines": [
-    {
-      "type": "depot",
-      "x": 0,
-      "y": 2
-    },
-    {
-      "type": "press",
-      "x": 5,
-      "y": 1
-    },
-    {
-      "type": "pad",
-      "x": 11,
-      "y": 2
-    }
+    { "type": "depot", "x": 1, "y": 0 },
+    { "type": "press", "x": 4, "y": 3 },
+    { "type": "pad", "x": 7, "y": 6 }
   ],
   "docks": [
-    {
-      "x": 2,
-      "y": 2
-    },
-    {
-      "x": 8,
-      "y": 2
-    }
+    { "x": 2, "y": 1 },
+    { "x": 6, "y": 5 }
   ],
-  "defOverrides": {
-    "press": {
-      "workTimeRange": [
-        1.5,
-        3.5
-      ]
-    }
-  },
-  "starEnergy": 8,
-  "starTimeLeft": 30,
-  "tutorial": [
-    "tutorial.sensor"
-  ],
+  "starEnergy": 6,
+  "starTimeLeft": 20,
+  "tutorial": ["tutorial.l3.secondRobot", "tutorial.l3.start"],
   "seed": 3
 }
