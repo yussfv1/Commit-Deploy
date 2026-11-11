@@ -1,0 +1,8 @@
+[
+  { "type": "depot", "kind": "source", "output": "ore", "produceEvery": 2, "capacity": 3 },
+  { "type": "tank", "kind": "source", "output": "fuel", "produceEvery": 3, "capacity": 3 },
+  { "type": "press", "kind": "processor", "inputs": { "ore": 1 }, "output": "plate", "workTime": 2, "cost": 4 },
+  { "type": "assembler", "kind": "processor", "inputs": { "plate": 1, "fuel": 1 }, "output": "cell", "workTime": 3 },
+  { "type": "pad", "kind": "sink" },
+  { "type": "shelf", "kind": "storage", "capacity": 4, "cost": 2 }
+]

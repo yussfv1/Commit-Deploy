@@ -1,0 +1,74 @@
+{
+  "id": "level4",
+  "titleKey": "level.demo4.title",
+  "width": 14,
+  "height": 5,
+  "timeLimit": 120,
+  "target": 12,
+  "targetItem": "cell",
+  "energy": 14,
+  "robotCost": 3,
+  "sensorCost": 1,
+  "maxProgram": 40,
+  "allowedOps": [
+    "up",
+    "right",
+    "down",
+    "left",
+    "take",
+    "put",
+    "wait",
+    "sense"
+  ],
+  "buildable": [
+    "shelf",
+    "press"
+  ],
+  "machines": [
+    {
+      "type": "depot",
+      "x": 0,
+      "y": 2
+    },
+    {
+      "type": "press",
+      "x": 4,
+      "y": 1
+    },
+    {
+      "type": "tank",
+      "x": 8,
+      "y": 1
+    },
+    {
+      "type": "assembler",
+      "x": 8,
+      "y": 3
+    },
+    {
+      "type": "pad",
+      "x": 13,
+      "y": 2
+    }
+  ],
+  "docks": [
+    {
+      "x": 2,
+      "y": 2
+    },
+    {
+      "x": 6,
+      "y": 2
+    },
+    {
+      "x": 10,
+      "y": 2
+    }
+  ],
+  "starEnergy": 12,
+  "starTimeLeft": 20,
+  "tutorial": [
+    "tutorial.telemetry"
+  ],
+  "seed": 4
+}
