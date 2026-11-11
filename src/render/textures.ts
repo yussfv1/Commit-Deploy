@@ -202,7 +202,30 @@ const ICONS: Record<string, (ctx: Ctx) => void> = {
     starPath(ctx, 32, 34, 27, 11.5);
     shape(ctx, rgba(COLOR.white, 0.04), css(COLOR.faint));
   },
-  /** Шестерёнка на кнопке паузы: 8 зубцов и отверстие посередине. */
+  // ---- значки для кнопок меню: белые, кнопка сама красит их в цвет своей надписи (iconTint) ----
+
+  /** ▶ Продолжить. */
+  play(ctx) {
+    poly(ctx, [[20, 12], [52, 32], [20, 52]], '#ffffff', '#ffffff', 6);
+  },
+  /** ↻ Начать заново: дуга почти по кругу (разрыв справа сверху) и стрелка наверху, по часовой. */
+  restart(ctx) {
+    ctx.beginPath();
+    ctx.arc(32, 35, 18, -Math.PI / 2 + 1.15, -Math.PI / 2 - 0.12);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    poly(ctx, [[44, 17], [30, 7], [30, 27]], '#ffffff', '#ffffff', 3);
+  },
+  /** ☰ К уровням: три станции на линиях, как выбор уровня в игре. */
+  levels(ctx) {
+    for (const y of [16, 32, 48]) {
+      line(ctx, 26, y, 54, y, '#ffffff', 6);
+      disc(ctx, 13, y, 5.5, '#ffffff');
+    }
+  },
+  /** Шестерёнка (пауза, настройки): 8 зубцов и отверстие посередине. */
   gear(ctx) {
     const teeth = 8;
     const outer = 27;
@@ -224,7 +247,7 @@ const ICONS: Record<string, (ctx: Ctx) => void> = {
     ctx.closePath();
     ctx.moveTo(32 + 8.5, 32);
     ctx.arc(32, 32, 8.5, 0, TAU, true);
-    ctx.fillStyle = css(COLOR.text);
+    ctx.fillStyle = '#ffffff';
     ctx.fill('evenodd');
   },
 };

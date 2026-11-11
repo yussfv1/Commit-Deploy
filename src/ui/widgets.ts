@@ -161,6 +161,8 @@ export interface ButtonOpts {
   icon?: string;
   /** Размер иконки в пикселях, по умолчанию половина высоты кнопки. */
   iconSize?: number;
+  /** Иконка-значок нарисована белым: красить её в цвет надписи (тёмная на оранжевой кнопке, светлая на серой). */
+  iconTint?: boolean;
   /** Подсказка справа мелким шрифтом (клавиша). */
   hint?: string;
   depth?: number;
@@ -180,6 +182,7 @@ export class Button {
   private readonly onClick: () => void;
   private readonly silent: boolean;
   private readonly alignLeft: boolean;
+  private readonly iconTint: boolean;
   private kind: ButtonKind;
   private active = false;
   private enabled = true;
@@ -194,6 +197,7 @@ export class Button {
     this.onClick = o.onClick;
     this.silent = o.silent ?? false;
     this.alignLeft = o.alignLeft ?? false;
+    this.iconTint = o.iconTint ?? false;
     this.bg = scene.add.image(0, 0, '__DEFAULT');
     this.label = txt(scene, 0, 0, o.label, {
       size: o.size ?? SIZE.small,
@@ -312,6 +316,7 @@ export class Button {
     const s = skin(this.kind, this.active, this.over && this.enabled, this.pressed && this.enabled);
     this.bg.setTexture(this.texture(s)).setDisplaySize(this.w, this.h);
     setColor(this.label, s.text);
+    if (this.icon && this.iconTint) this.icon.setTint(s.text);
     if (this.hint) setColor(this.hint, this.active || this.kind === 'primary' ? s.text : COLOR.faint);
     this.place();
   }
@@ -324,7 +329,7 @@ export class Button {
       const left = -this.w / 2 + pad;
       if (this.icon) {
         this.icon.setPosition(left + this.icon.displayWidth / 2, dy);
-        this.label.setPosition(left + this.icon.displayWidth + 8, dy);
+        this.label.setPosition(left + this.icon.displayWidth + 12, dy);
       } else {
         this.label.setPosition(left, dy);
       }
