@@ -202,6 +202,31 @@ const ICONS: Record<string, (ctx: Ctx) => void> = {
     starPath(ctx, 32, 34, 27, 11.5);
     shape(ctx, rgba(COLOR.white, 0.04), css(COLOR.faint));
   },
+  /** Шестерёнка на кнопке паузы: 8 зубцов и отверстие посередине. */
+  gear(ctx) {
+    const teeth = 8;
+    const outer = 27;
+    const inner = 20;
+    const step = TAU / teeth;
+    const top = step * 0.2; // полуширина зубца у вершины
+    const root = step * 0.27; // полуширина зубца у основания
+    const at = (r: number, a: number): [number, number] => [32 + Math.cos(a) * r, 32 + Math.sin(a) * r];
+    ctx.beginPath();
+    ctx.moveTo(...at(inner, -root));
+    for (let i = 0; i < teeth; i++) {
+      const a = i * step;
+      // Зубец — трапеция, между зубцами — дуга по внутреннему кругу.
+      ctx.lineTo(...at(outer, a - top));
+      ctx.lineTo(...at(outer, a + top));
+      ctx.lineTo(...at(inner, a + root));
+      ctx.arc(32, 32, inner, a + root, a + step - root);
+    }
+    ctx.closePath();
+    ctx.moveTo(32 + 8.5, 32);
+    ctx.arc(32, 32, 8.5, 0, TAU, true);
+    ctx.fillStyle = css(COLOR.text);
+    ctx.fill('evenodd');
+  },
 };
 
 /** Ракета 64 × 128 (PNG от роли C — 128 × 256, показывается в том же размере). Низ корпуса на y = 112. */

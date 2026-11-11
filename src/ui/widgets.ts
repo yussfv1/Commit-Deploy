@@ -157,8 +157,10 @@ export interface ButtonOpts {
   bold?: boolean;
   /** Надпись прижата к левому краю (строки меню), по умолчанию — по центру. */
   alignLeft?: boolean;
-  /** Ключ текстуры-иконки слева от надписи. */
+  /** Ключ текстуры-иконки слева от надписи. С пустой надписью иконка стоит по центру кнопки. */
   icon?: string;
+  /** Размер иконки в пикселях, по умолчанию половина высоты кнопки. */
+  iconSize?: number;
   /** Подсказка справа мелким шрифтом (клавиша). */
   hint?: string;
   depth?: number;
@@ -200,7 +202,8 @@ export class Button {
       oy: 0.5,
     });
     this.hint = o.hint ? txt(scene, 0, 0, o.hint, { size: SIZE.micro, color: COLOR.faint, ox: 1, oy: 0.5 }) : null;
-    this.icon = o.icon ? scene.add.image(0, 0, o.icon).setDisplaySize(o.h * 0.5, o.h * 0.5) : null;
+    const iconSize = o.iconSize ?? o.h * 0.5;
+    this.icon = o.icon ? scene.add.image(0, 0, o.icon).setDisplaySize(iconSize, iconSize) : null;
     const parts: Phaser.GameObjects.GameObject[] = [this.bg];
     if (this.icon) parts.push(this.icon);
     parts.push(this.label);
@@ -325,6 +328,8 @@ export class Button {
       } else {
         this.label.setPosition(left, dy);
       }
+    } else if (this.icon && this.label.text === '') {
+      this.icon.setPosition(0, dy);
     } else if (this.icon) {
       const gap = 8;
       const total = this.icon.displayWidth + gap + this.label.width;
