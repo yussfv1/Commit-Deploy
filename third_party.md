@@ -184,16 +184,17 @@ node -e "const d='/tmp/tm-map/assets/',fs=require('fs');const m=JSON.parse(fs.re
 git log --format=%B | grep -i co-authored | sort | uniq -c                # 8. подписи ИИ в коммитах
 ```
 
-## Обновление 12.11: свой шрифт Nunito
+## Обновление 12.11: свой шрифт PT Sans
 
-С этой правки в сборке **есть** файл шрифта, и раздел «Шрифты» выше устарел в двух местах: `TMinus` теперь загружается
-из `public/assets/fonts/main.ttf`, а Bahnschrift и остальные системные шрифты стали запасными (если файл не загрузился).
-Зачем: на холсте браузер рисует буквы без ClearType, и тонкий системный шрифт выглядел мыльным. Nunito со скруглёнными
-концами подходит к линиям логотипа Commit & Deploy, а плотная толщина 600 читается чётко.
+С этой правки в сборке **есть** файлы шрифта, и раздел «Шрифты» выше устарел в двух местах: `TMinus` теперь
+загружается из `public/assets/fonts/main.ttf` и `main-bold.ttf`, а Bahnschrift и остальные системные шрифты стали
+запасными (если файлы не загрузились). Зачем: на холсте браузер рисует буквы без ClearType, и системный шрифт выглядел
+мыльным. PT Sans — тот же шрифт, что в презентации (`docs/presentation/`): прямые штрихи, чёткий на экране.
 
 | Шрифт | Версия / откуда | Лицензия | Ссылка | Где используется | Входит в сборку |
 |---|---|---|---|---|---|
-| Nunito (The Nunito Project Authors) | Переменный TTF `Nunito[wght].ttf`, толщины 200…1000, из репозитория Google Fonts на GitHub, скачан 12.11; SHA-256 `BB55A5CA5C2042335B3991AF27C4D0705D0EF41CAC6164AC737FD8F2A1E85207` | SIL OFL 1.1, текст лицензии рядом: `public/assets/fonts/ofl-nunito.txt` | https://github.com/google/fonts/tree/main/ofl/nunito | Весь текст игры (`FONT` → `TMinus`), кроме моноширинного кода | да, `public/assets/fonts/main.ttf` |
+| PT Sans Regular (ParaType) | `PT_Sans-Web-Regular.ttf` из репозитория Google Fonts на GitHub, скачан 12.11; SHA-256 `9CC831490532009BAE2B3CE0D39C62ADFC889060BEB421593BFD9D2396D0F10A` | SIL OFL 1.1, Reserved Font Names «PT Sans», «ParaType»; файл не изменён; текст лицензии: `public/assets/fonts/ofl-ptsans.txt` | https://github.com/google/fonts/tree/main/ofl/ptsans | Весь обычный текст игры (`FONT` и `MONO` → `TMinus`, толщина 400) | да, `public/assets/fonts/main.ttf` |
+| PT Sans Bold (ParaType) | `PT_Sans-Web-Bold.ttf` оттуда же, скачан 12.11; SHA-256 `3128BD5ECF01816E59A23D54C57A7A6B14615B07DB53FF277C77376010265B05` | SIL OFL 1.1, как выше | https://github.com/google/fonts/tree/main/ofl/ptsans | Жирный текст (толщина 700) | да, `public/assets/fonts/main-bold.ttf` |
 
 Шрифт лежит в сборке и грузится с того же адреса, что и игра: сетевых запросов к Google Fonts нет.
-В нём есть вся кириллица и казахские буквы ә ғ қ ң ө ұ ү һ і. Стрелку «→» браузер берёт из запасного шрифта.
+Имя `TMinus` — только внутреннее имя в коде игры (`FontFace`), сам файл шрифта не переименован и не изменён.
