@@ -23,8 +23,9 @@ const DARK = {
   wall: 0x0c1625,
   wallLine: 0x1a2a40,
   text: 0xe6edf5,
-  dim: 0x93a4ba,
-  faint: 0x5c6e86,
+  // Серый текст чуть светлее, чем был (0x93a4ba / 0x5c6e86): на тёмном пульте подписи читаются легче.
+  dim: 0xb4c2d4,
+  faint: 0x8293ab,
   accent: 0xff7a2f,
   accentHi: 0xff925a,
   ok: 0x5cc98d,
@@ -116,8 +117,11 @@ export const FONT = "TMinus, Bahnschrift, 'PT Sans', 'Segoe UI', Roboto, 'Helvet
  * и тонкие линии выглядят мыльными. Жирный — 800.
  */
 export const WEIGHT = { normal: '600', bold: '800' } as const;
-/** Моноширинный — только там, где на экране код (программа робота текстом). */
-export const MONO = "'PT Mono', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', monospace";
+/**
+ * Шрифт для кода программы робота и клавиш. Раньше был моноширинный; теперь и тут Nunito (TMinus),
+ * чтобы шрифт во всей игре был один. Моноширинные остаются запасными, если файл шрифта не загрузился.
+ */
+export const MONO = "TMinus, 'PT Mono', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', monospace";
 
 /** Шесть размеров на всю игру: подпись, мелкий, основной, заголовок блока, заголовок экрана, крупные цифры. */
 export const SIZE = { micro: 12, small: 14, body: 16, title: 20, h1: 28, display: 64 } as const;
