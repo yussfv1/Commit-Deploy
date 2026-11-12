@@ -41,8 +41,11 @@ export class TelemetryPanel {
   private readonly machineTexts: Phaser.GameObjects.Text[] = [];
   private sig = '';
   private open = false;
+  private readonly numberOf: (robotId: number) => number;
 
-  constructor(scene: Phaser.Scene, onPick: (robotId: number) => void) {
+  /** onPick — нажали на строку робота; numberOf — номер робота в подписи (тот же, что на панели справа). */
+  constructor(scene: Phaser.Scene, onPick: (robotId: number) => void, numberOf: (robotId: number) => number) {
+    this.numberOf = numberOf;
     this.root = scene.add.container(FIELD.x, 0).setDepth(DEPTH.ui - 1).setVisible(false);
     this.bg = scene.add.rectangle(0, 0, FIELD.w, 10, COLOR.chrome, 0.97).setOrigin(0, 0).setInteractive();
     this.topRule = rule(scene, 0, 0, FIELD.w);
@@ -129,7 +132,7 @@ export class TelemetryPanel {
       row.name.setY(y);
       row.stats.setY(y);
       row.zone.setY(y);
-      setText(row.name, t('telemetry.robot', { n: bar.robotId + 1 }));
+      setText(row.name, t('telemetry.robot', { n: this.numberOf(bar.robotId) }));
       setColor(row.name, bar.robotId === selectedRobot ? COLOR.text : COLOR.dim);
       setText(
         row.stats,

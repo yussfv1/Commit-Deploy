@@ -2,7 +2,6 @@
 import Phaser from 'phaser';
 import { DEPTH, H, W } from '../render/layout';
 import { iconKey } from '../render/textures';
-import type { BottleneckReason } from '../types';
 import { hintKey } from '../ui/hints';
 import { clock, i18n, t } from '../ui/i18n';
 import { levelById, levelIndex, nextLevel } from '../ui/levels';
@@ -29,7 +28,8 @@ export interface ResultsData {
   launches: number;
   /** Новый лучший результат. */
   best: boolean;
-  bottleneck: BottleneckReason | null;
+  /** Ключ совета «что тормозило», уже подобранный под уровень (или null). */
+  bottleneckKey: string | null;
   /** Третье поражение подряд — спросить «Вам нужна подсказка?». */
   offerHint?: boolean;
 }
@@ -97,9 +97,9 @@ export class ResultsScene extends Phaser.Scene {
         color: COLOR.text,
       }).setDepth(d + 2);
       y += 32;
-      if (r.bottleneck) {
+      if (r.bottleneckKey) {
         txt(this, x, y, t('results.cause'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d + 2);
-        txt(this, x, y + 20, t(`bottleneck.${r.bottleneck}`), { size: SIZE.body, color: COLOR.warn, wrap: PANEL_W - PAD * 2 }).setDepth(d + 2);
+        txt(this, x, y + 20, t(r.bottleneckKey), { size: SIZE.body, color: COLOR.warn, wrap: PANEL_W - PAD * 2 }).setDepth(d + 2);
       }
       y += 64;
     }

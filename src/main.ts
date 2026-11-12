@@ -12,6 +12,10 @@ import { ResultsScene } from './scenes/ResultsScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { COLOR, css } from './ui/theme';
 
+// Фон страницы вокруг холста — в цвет выбранной темы (в index.html стоит тёмный по умолчанию).
+document.body.style.background = css(COLOR.page);
+document.body.style.color = css(COLOR.text);
+
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',

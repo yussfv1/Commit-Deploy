@@ -18,6 +18,12 @@ describe('поле', () => {
     expect(cellAt(o, c.x + 20, c.y - 20, 12, 5)).toEqual({ x: 3, y: 2 });
   });
 
+  it('на уменьшенной карте (меню) клетка меньше, а поиск клетки тот же', () => {
+    const o = { ox: 560, oy: 150 };
+    expect(cellCenter(o, 1, 0, 32)).toEqual({ x: 560 + 48, y: 150 + 16 });
+    expect(cellAt(o, 560 + 48, 150 + 16, 14, 5, 32)).toEqual({ x: 1, y: 0 });
+  });
+
   it('точка вне уровня не даёт клетку', () => {
     const o = fieldOrigin(12, 5);
     expect(cellAt(o, 100, 300, 12, 5)).toBeNull();

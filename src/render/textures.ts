@@ -394,6 +394,12 @@ export function makeTextures(scene: Phaser.Scene): void {
     line(ctx, 12, 5, 12, 19, css(COLOR.dim), 2.5);
     line(ctx, 5, 12, 19, 12, css(COLOR.dim), 2.5);
   });
+  // Док в легенде над картой: кольцо с плюсом, как на поле.
+  drawTexture(scene, 'dock_legend', 24, 24, (ctx) => {
+    disc(ctx, 12, 12, 9, css(COLOR.floor), css(COLOR.dim), 2.5);
+    line(ctx, 12, 8, 12, 16, css(COLOR.dim), 2);
+    line(ctx, 8, 12, 16, 12, css(COLOR.dim), 2);
+  });
   drawTexture(scene, 'miss_x', 24, 24, (ctx) => {
     line(ctx, 6, 6, 18, 18, css(COLOR.ink), 7);
     line(ctx, 18, 6, 6, 18, css(COLOR.ink), 7);

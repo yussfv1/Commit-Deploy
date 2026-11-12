@@ -43,18 +43,48 @@ export function fieldOrigin(levelW: number, levelH: number): FieldOrigin {
   };
 }
 
-export function cellCenter(o: FieldOrigin, x: number, y: number): { x: number; y: number } {
-  return { x: o.ox + (x + 0.5) * TILE, y: o.oy + (y + 0.5) * TILE };
+/** Полоса над картой: слева легенда машин, справа выбор петель (или плашка режима обучения). */
+export const STRIP = { x: FIELD.x + 16, y: FIELD.y + 8, w: FIELD.w - 32, h: 32 } as const;
+/** Самый крупный масштаб карты: на маленьком уровне клетка не вырастает больше 96 px. */
+export const MAX_FIELD_SCALE = 1.5;
+
+export interface FieldFit extends FieldOrigin {
+  scale: number;
 }
 
+/**
+ * Карта занимает всё свободное место под полосой легенды: маленький уровень увеличивается
+ * (на проекторе роботы не превращаются в точки), большой — уменьшается, чтобы влезть целиком.
+ */
+export function fieldFit(levelW: number, levelH: number): FieldFit {
+  const top = STRIP.y + STRIP.h + 8;
+  const availW = FIELD.w - 32;
+  const availH = FIELD.y + FIELD.h - 12 - top;
+  const scale = Math.max(0.5, Math.min(MAX_FIELD_SCALE, availW / (levelW * TILE), availH / (levelH * TILE)));
+  const w = levelW * TILE * scale;
+  const h = levelH * TILE * scale;
+  return {
+    ox: Math.round(FIELD.x + (FIELD.w - w) / 2),
+    oy: Math.round(top + (availH - h) / 2),
+    scale,
+  };
+}
+
+/** Центр клетки на экране. tile — размер клетки на экране (у уменьшенной карты в меню он меньше 64). */
+export function cellCenter(o: FieldOrigin, x: number, y: number, tile: number = TILE): { x: number; y: number } {
+  return { x: o.ox + (x + 0.5) * tile, y: o.oy + (y + 0.5) * tile };
+}
+
+/** Клетка под точкой экрана или null, если точка вне уровня. */
 export function cellAt(
   o: FieldOrigin,
   px: number,
   py: number,
   levelW: number,
   levelH: number,
+  tile: number = TILE,
 ): { x: number; y: number } | null {
-  const x = Math.floor((px - o.ox) / TILE);
-  const y = Math.floor((py - o.oy) / TILE);
+  const x = Math.floor((px - o.ox) / tile);
+  const y = Math.floor((py - o.oy) / tile);
   return x >= 0 && y >= 0 && x < levelW && y < levelH ? { x, y } : null;
 }

@@ -8,11 +8,15 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
+export type ThemeName = 'dark' | 'light';
+
 export interface Settings {
   master: number;
   music: number;
   sfx: number;
   lang: string;
+  /** Тёмная (по умолчанию) или светлая тема. Меняется в настройках, применяется при перезапуске игры. */
+  theme: ThemeName;
 }
 
 export interface LevelRecord {
@@ -35,7 +39,8 @@ export interface Store {
 
 const SETTINGS_KEY = 'tminus.settings.v1';
 const PROGRESS_KEY = 'tminus.progress.v1';
-const DEFAULTS: Settings = { master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru' };
+const DEFAULTS: Settings = { master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru', theme: 'dark' };
+const themeName = (v: unknown): ThemeName => (v === 'light' ? 'light' : 'dark');
 
 const volume = (v: unknown, fallback: number): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
@@ -69,6 +74,7 @@ export function createStore(backend: StorageLike | null): Store {
     music: volume(s.music, DEFAULTS.music),
     sfx: volume(s.sfx, DEFAULTS.sfx),
     lang: typeof s.lang === 'string' ? s.lang : DEFAULTS.lang,
+    theme: themeName(s.theme),
   };
 
   let progress: Record<string, LevelRecord> = {};
@@ -93,6 +99,7 @@ export function createStore(backend: StorageLike | null): Store {
       if (patch.music !== undefined) settings.music = volume(patch.music, settings.music);
       if (patch.sfx !== undefined) settings.sfx = volume(patch.sfx, settings.sfx);
       if (patch.lang !== undefined) settings.lang = patch.lang;
+      if (patch.theme !== undefined) settings.theme = themeName(patch.theme);
       write(backend, SETTINGS_KEY, settings);
     },
     record: (levelId) => (progress[levelId] ? { ...progress[levelId] } : null),

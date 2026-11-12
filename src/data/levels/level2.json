@@ -1,57 +1,25 @@
 {
   "id": "level2",
-  "titleKey": "level.demo2.title",
-  "width": 12,
-  "height": 5,
-  "timeLimit": 60,
-  "target": 12,
-  "targetItem": "plate",
+  "titleKey": "level.l2.title",
+  "width": 10,
+  "height": 6,
+  "timeLimit": 75,
+  "target": 20,
+  "targetItem": "ore",
   "energy": 6,
   "robotCost": 3,
   "sensorCost": 1,
   "maxProgram": 40,
-  "allowedOps": [
-    "up",
-    "right",
-    "down",
-    "left",
-    "take",
-    "put",
-    "wait"
-  ],
+  "allowedOps": ["up", "right", "down", "left", "take", "put", "wait"],
   "buildable": [],
   "machines": [
-    {
-      "type": "depot",
-      "x": 0,
-      "y": 2
-    },
-    {
-      "type": "press",
-      "x": 5,
-      "y": 1
-    },
-    {
-      "type": "pad",
-      "x": 11,
-      "y": 2
-    }
+    { "type": "depot", "x": 0, "y": 1 },
+    { "type": "pad", "x": 9, "y": 5 }
   ],
-  "docks": [
-    {
-      "x": 2,
-      "y": 2
-    },
-    {
-      "x": 8,
-      "y": 2
-    }
-  ],
+  "docks": [{ "x": 2, "y": 1 }],
+  "walls": [[3, 3], [4, 3], [5, 3], [6, 3], [3, 4], [4, 4], [5, 4], [6, 4]],
   "starEnergy": 6,
-  "starTimeLeft": 15,
-  "tutorial": [
-    "tutorial.waitPress",
-    "tutorial.copy"
-  ],
+  "starTimeLeft": 12,
+  "tutorial": ["tutorial.l2.clickDock", "tutorial.l2.copy", "tutorial.l2.start"],
   "seed": 2
 }

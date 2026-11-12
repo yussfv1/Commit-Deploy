@@ -1,6 +1,7 @@
 // Чёткая картинка на любом экране: внутреннее разрешение холста подстраивается под окно,
 // а камера каждой сцены приближает мир так, чтобы логический размер оставался 1280×720.
 import type Phaser from 'phaser';
+import { FrameGovernor } from './frameGovernor';
 import { H, W } from './layout';
 
 const RESCALE = 'tminus-rescale';
@@ -11,8 +12,6 @@ let scaleCap = MAX_SCALE;
 let reapply: (() => void) | null = null;
 
 export const getRenderScale = (): number => renderScale;
-
-export const getScaleCap = (): number => scaleCap;
 
 /**
  * Во сколько раз холст плотнее логических 1280×720: от 0,5 до 2.
@@ -47,6 +46,12 @@ export function installDisplay(game: Phaser.Game): void {
   reapply = apply;
   game.scale.on('resize', apply);
   apply();
+  // Слабый компьютер не держит кадры на большом холсте — понижаем чёткость, пока не станет плавно.
+  const governor = new FrameGovernor();
+  game.events.on('step', (time: number, delta: number) => {
+    const cap = governor.sample(delta, time, renderScale);
+    if (cap !== null) setScaleCap(cap);
+  });
 }
 
 /** Камера сцены всегда показывает ровно 1280×720 логических пикселей. */

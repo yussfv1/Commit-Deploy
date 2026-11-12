@@ -8,7 +8,7 @@ import { audio } from '../ui/audio';
 import { t } from '../ui/i18n';
 import { levels } from '../ui/levels';
 import { store } from '../ui/storage';
-import { COLOR, SIZE } from '../ui/theme';
+import { COLOR, SIZE, THEME } from '../ui/theme';
 import { Button, keyHint, rule, txt } from '../ui/widgets';
 import { enter, go, leaving } from './flow';
 
@@ -32,6 +32,8 @@ export class MenuScene extends Phaser.Scene {
     if (this.textures.exists(iconKey('logo'))) {
       const logo = this.add.image(X0, 112, iconKey('logo')).setOrigin(0, 0);
       logo.setScale(Math.min(400 / logo.width, 96 / logo.height));
+      // Буквы логотипа светлые: в светлой теме печатаем его цветом текста, как штамп.
+      if (THEME === 'light') logo.setTint(COLOR.text);
     } else {
       txt(this, X0 - 4, 108, 'T-MINUS', { size: SIZE.display + 8, bold: true });
     }
@@ -59,16 +61,16 @@ export class MenuScene extends Phaser.Scene {
       onClick: () => go(this, 'Credits'),
     });
 
-    // Под «Об игре»: коротко, что делать в игре, и главные горячие клавиши.
-    // Сами клавиши работают как раньше (Esc — в игре, R и M — в меню паузы); здесь они собраны в одном месте.
+    // Под «Об игре»: коротко, что делать в игре, и главные горячие клавиши на поле.
+    // (R «заново» — в меню паузы и в итогах, M «к уровням» работает и на поле.)
     txt(this, X0, 540, t('menu.howTitle'), { size: SIZE.micro, color: COLOR.faint, caps: true });
     const how = txt(this, X0, 558, t('menu.how'), { size: SIZE.small, color: COLOR.dim, wrap: 400, lineSpacing: 3 });
     const keysY = Math.round(558 + how.height + 20);
     let kx = X0;
     for (const [key, label] of [
-      ['Esc', t('keys.esc')],
-      ['R', t('keys.r')],
-      ['M', t('keys.m')],
+      ['Esc', t('keys.pause')],
+      ['R', t('keys.copy')],
+      ['Tab', t('keys.tab')],
     ] as const) {
       kx += keyHint(this, kx, keysY, key, label) + 22;
     }

@@ -1,7 +1,6 @@
 // Ракета на стартовом столе и её пуск: пламя, дым, тряска камеры, ракета уходит вверх.
 // Живёт в контейнере карты: координаты — в пикселях уровня.
 import type Phaser from 'phaser';
-import { COLOR } from '../ui/theme';
 import { iconKey } from './textures';
 
 const W = 46;
@@ -38,10 +37,6 @@ export class Rocket {
     parent.add([this.smoke, this.flame, this.body]);
   }
 
-  busy(): boolean {
-    return this.burning;
-  }
-
   /** dt — секунды. Пока двигатель работает, пламя дрожит, а из-под ракеты идёт дым. */
   update(dt: number): void {
     if (!this.burning) return;
@@ -57,7 +52,9 @@ export class Rocket {
     if (this.burning) return;
     this.burning = true;
     this.flame.setVisible(true);
-    if (shake) this.scene.cameras.main.shake(2200, 0.004);
+    // Зажигание: клуб дыма сразу во все стороны от стола, дальше дым идёт непрерывно (update).
+    for (let i = 0; i < 3; i++) this.smoke.emitParticleAt(this.homeX + (i - 1) * 12, this.homeY + 4, 14);
+    if (shake) this.scene.cameras.main.shake(2400, 0.005);
     this.flying = this.scene.tweens.add({
       targets: this.body,
       y: this.homeY - 820,
@@ -74,10 +71,9 @@ export class Rocket {
     });
   }
 
-  /** Сразу закончить взлёт (игрок пропустил анимацию). */
+  /** Сразу закончить взлёт (игрок пропустил анимацию — даже ещё во время отсчёта): ракета улетела. */
   finishNow(): void {
-    if (!this.flying) return;
-    this.flying.stop();
+    this.flying?.stop();
     this.flying = null;
     this.burning = false;
     this.flame.setVisible(false);
@@ -89,11 +85,5 @@ export class Rocket {
     if (this.burning) return;
     this.body.setPosition(this.homeX, this.homeY).setVisible(true).setAlpha(0);
     this.scene.tweens.add({ targets: this.body, alpha: 1, duration: 500 });
-  }
-
-  /** Подсветить ракету цветом (например, красным при отмене старта). */
-  flash(color: number = COLOR.miss): void {
-    this.body.setTint(color);
-    this.scene.time.delayedCall(700, () => this.body.clearTint());
   }
 }
