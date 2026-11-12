@@ -97,7 +97,6 @@ export function mix(a: number, b: number, t: number): number {
 }
 
 export const darken = (color: number, amount: number): number => mix(color, COLOR.black, amount);
-export const lighten = (color: number, amount: number): number => mix(color, COLOR.white, amount);
 
 /** Цвет робота по индексу из снимка. */
 export const robotColor = (colorIndex: number): number => ROBOT_COLORS[((colorIndex % ROBOT_COLORS.length) + ROBOT_COLORS.length) % ROBOT_COLORS.length];

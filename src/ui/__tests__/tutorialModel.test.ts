@@ -183,6 +183,66 @@ describe('подсказки по ситуации', () => {
     expect(now()).toBeNull();
   });
 
+  it('подсказка про датчик уходит сразу, как датчик поставлен, даже если правка ждёт конца круга', () => {
+    const { sim, now } = setup({
+      tutorial: ['tutorial.sensor'],
+      machines: [
+        { type: 'depot', x: 3, y: 4 },
+        { type: 'press', x: 8, y: 3 },
+        { type: 'pad', x: 12, y: 4 },
+      ],
+    });
+    sim.beginTeach(0);
+    sim.teachInput('wait');
+    const robot = id(sim.finishTeach());
+    expect(sim.setProgram(robot, [{ op: 'right' }, { op: 'up' }, { op: 'take' }, { op: 'left' }]).ok).toBe(true);
+    sim.start();
+    sim.step(1.6);
+    expect(sim.snapshot().misses).toBeGreaterThan(0);
+    // Робот посреди круга: правка с датчиком пока только ждёт, но игрок уже сделал то, о чём просили.
+    expect(sim.setProgram(robot, [{ op: 'right' }, { op: 'up' }, { op: 'sense' }, { op: 'take' }, { op: 'left' }]).ok).toBe(true);
+    expect(sim.snapshot().robots[0].pendingProgram).not.toBeNull();
+    expect(now()).toBeNull();
+  });
+
+  it('во время показа не просит того, что делается вне показа: копию, старт, датчик, телеметрию', () => {
+    for (const key of ['tutorial.copy', 'tutorial.start', 'tutorial.sensor', 'tutorial.telemetry']) {
+      const { sim, flow, ctx, press } = setup({ tutorial: [key] });
+      sim.beginTeach(0);
+      press('LLLT');
+      flow.update(ctx());
+      expect(flow.current()?.key).toBe(key);
+      expect(flow.visible(ctx())).toBe(false);
+    }
+  });
+
+  it('подсказка про датчик ведёт: робот, который промахнулся → его блок → кнопка «Датчик»', () => {
+    const { sim, flow, ctx, now } = setup({
+      tutorial: ['tutorial.sensor'],
+      machines: [
+        { type: 'depot', x: 3, y: 4 },
+        { type: 'press', x: 8, y: 3 },
+        { type: 'pad', x: 12, y: 4 },
+      ],
+    });
+    sim.beginTeach(0);
+    sim.teachInput('wait');
+    const robot = id(sim.finishTeach());
+    expect(sim.setProgram(robot, [{ op: 'right' }, { op: 'up' }, { op: 'take' }, { op: 'left' }]).ok).toBe(true);
+    sim.start();
+    sim.step(1.6);
+    expect(now()).toBe('sensor');
+    const miss = { robotId: robot, op: 'take' as const };
+    // Где был промах, ещё не знаем — стрелку не ставим.
+    expect(flow.target(ctx())).toBeNull();
+    expect(flow.target({ ...ctx(), lastMiss: miss })).toEqual({ kind: 'robot', id: robot });
+    expect(flow.target({ ...ctx(), lastMiss: miss, selectedRobot: robot })).toEqual({ kind: 'block', index: 2 });
+    expect(flow.target({ ...ctx(), lastMiss: miss, selectedRobot: robot, picked: 'take' })).toEqual({ kind: 'ui', id: 'sense' });
+    // Текст — про то действие, на котором промахнулись.
+    expect(flow.textKey({ ...ctx(), lastMiss: miss })).toBe('tutorial.sensor');
+    expect(flow.textKey({ ...ctx(), lastMiss: { robotId: robot, op: 'put' } })).toBe('tutorial.sensorPut');
+  });
+
   it('подсказка про телеметрию уходит, когда панель открыли', () => {
     const { flow, ctx } = setup({ tutorial: ['tutorial.telemetry'] });
     flow.update({ ...ctx(), telemetryOpen: true });
@@ -228,6 +288,12 @@ describe('подсказка «подожди пресс» (уровень 2)', 
     for (let i = 0; i < 12 && sim.snapshot().machines.find((m) => m.type === 'press')?.state !== 'ready'; i++) press('W');
     press('T');
     expect(sim.snapshot().operator?.carrying).toBe('plate');
-    expect(step().kind).toBe('copy');
+    // Следующий шаг — «сделай копию», но кнопка копии появится только у готового робота:
+    // пока идёт показ, подсказка молчит, чтобы не сбивать игрока посреди записи.
+    expect(step()).toEqual({ kind: 'copy', visible: false });
+    press('RRRRRT');
+    while (sim.snapshot().operator && !sim.canFinishTeach()) press('L');
+    expect(sim.finishTeach().ok).toBe(true);
+    expect(step()).toEqual({ kind: 'copy', visible: true });
   });
 });

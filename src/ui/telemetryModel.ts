@@ -1,6 +1,5 @@
 // Данные для панели телеметрии: полоса последнего круга каждого робота, темп линии и узкое место.
 // Всё считает симуляция (RobotView.timeline, throughput, bottleneck) — здесь только раскладка для экрана.
-import { TICKS_PER_SECOND } from '../types';
 import type { Bottleneck, BottleneckReason, LevelData, MachineType, MachineView, RobotState, RobotView, SimSnapshot, TimelineSegment } from '../types';
 
 export interface RobotBar {
@@ -28,13 +27,6 @@ export function robotBars(robots: readonly RobotView[]): RobotBar[] {
 
 /** Самый длинный круг: все полосы рисуются в одном масштабе, и разница в такте видна глазом. */
 export const longestCycle = (bars: readonly RobotBar[]): number => bars.reduce((m, b) => Math.max(m, b.total), 0);
-
-/** Сколько секунд в последнем круге ушло на ожидание и промахи. */
-export function lostSeconds(bar: RobotBar): number {
-  let ticks = 0;
-  for (const s of bar.parts) if (s.state === 'wait' || s.state === 'miss') ticks += s.to - s.from;
-  return ticks / TICKS_PER_SECOND;
-}
 
 export type Pace = 'none' | 'behind' | 'ok';
 

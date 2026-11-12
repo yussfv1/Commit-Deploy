@@ -10,13 +10,13 @@
 //   tutorial.copy           сделай копию робота со сдвигом (кнопка на панели робота)
 //   tutorial.start          нажми СТАРТ
 //   tutorial.waitPress      в репетиции у работающего пресса с пустыми руками: дождись готовой пластины (Пробел)
-//   tutorial.sensor         после первого промаха: поставь ДАТЧИК
+//   tutorial.sensor         после первого промаха: поставь ДАТЧИК (промах на «положить» — текст tutorial.sensorPut)
 //   tutorial.telemetry      открой телеметрию (Tab)
 //   любой другой ключ       простая подсказка, пропадает после старта
 //
 // Перед последней частью можно ставить что угодно: tutorial.l2.waitPress тоже сработает.
 import { DIR_DX, DIR_DY } from '../types';
-import type { ItemType, LevelData, MachineType, SimSnapshot } from '../types';
+import type { ItemType, LevelData, MachineType, Op, SimSnapshot } from '../types';
 
 export type StepKind =
   | 'clickDock'
@@ -38,15 +38,32 @@ export interface Step {
   machine?: MachineType;
 }
 
+/** Последний промах робота в настоящем мире: кто и на каком действии (с грузом в руках — «положить»). */
+export interface MissInfo {
+  robotId: number;
+  op: 'take' | 'put';
+}
+
 export interface TutorialCtx {
   snap: SimSnapshot;
   level: LevelData;
   canFinish: boolean;
   telemetryOpen: boolean;
+  /** Для подсказки про датчик: кто промахнулся, какой робот выбран на панели и какой блок в нём выделен. */
+  lastMiss?: MissInfo | null;
+  selectedRobot?: number | null;
+  picked?: Op | null;
 }
 
-export type UiTarget = 'finish' | 'copy' | 'start' | 'telemetry';
-export type Target = { kind: 'cell'; x: number; y: number } | { kind: 'ui'; id: UiTarget } | null;
+export type UiTarget = 'finish' | 'copy' | 'start' | 'telemetry' | 'sense';
+export type Target =
+  | { kind: 'cell'; x: number; y: number }
+  | { kind: 'ui'; id: UiTarget }
+  /** Робот на карте (стрелка едет вместе с ним). */
+  | { kind: 'robot'; id: number }
+  /** Блок программы выбранного робота на панели. */
+  | { kind: 'block'; index: number }
+  | null;
 
 const SIMPLE: readonly StepKind[] = [
   'clickDock',
@@ -67,6 +84,8 @@ const PROCESSED: readonly ItemType[] = ['plate', 'cell'];
 const IN_TEACH: readonly StepKind[] = ['goTo', 'take', 'put', 'returnDock', 'finish'];
 /** Шаги, которым нужен хотя бы один робот или идущая репетиция. */
 const NEEDS_ROBOT: readonly StepKind[] = [...IN_TEACH, 'copy', 'start'];
+/** Шаги, которые выполняются вне показа (кнопки панели робота, СТАРТ, Tab): пока идёт показ, о них молчим. */
+const OUTSIDE_TEACH: readonly StepKind[] = ['copy', 'start', 'sensor', 'telemetry'];
 
 export function parseStep(key: string): Step {
   const tail = key.slice(key.lastIndexOf('.') + 1);
@@ -117,7 +136,8 @@ function done(step: Step, ctx: TutorialCtx): boolean {
       // Пройден, как только игрок дождался и взял пластину (или ячейку) — не нужно ждать доставки.
       return started(s) || s.delivered > 0 || (s.operator !== null && PROCESSED.includes(s.operator.carrying as ItemType));
     case 'sensor':
-      return s.robots.some((r) => r.program.some((b) => b.op === 'sense'));
+      // Правка с датчиком вступает с нового круга, но игрок уже сделал то, о чём просили.
+      return s.robots.some((r) => (r.pendingProgram ?? r.program).some((b) => b.op === 'sense'));
     case 'telemetry':
       return ctx.telemetryOpen;
     default:
@@ -165,6 +185,7 @@ export class TutorialFlow {
     const step = this.current();
     if (!step) return false;
     const s = ctx.snap;
+    if (s.mode === 'teach' && OUTSIDE_TEACH.includes(step.kind)) return false;
     if (step.kind === 'sensor') return s.misses > 0;
     if (step.kind === 'telemetry') return s.mode === 'running' && s.tick >= 200;
     if (step.kind === 'waitPress') {
@@ -174,6 +195,17 @@ export class TutorialFlow {
       return s.mode === 'teach' && s.operator?.carrying === null && m?.kind === 'processor' && m.state === 'working' && last?.op !== 'put';
     }
     return true;
+  }
+
+  /**
+   * Ключ текста шага. Подсказка про датчик говорит про то действие, на котором робот промахнулся:
+   * с грузом в руках он промахивается на «положить», с пустыми — на «взять».
+   */
+  textKey(ctx: TutorialCtx): string | null {
+    const step = this.current();
+    if (!step) return null;
+    if (step.kind === 'sensor' && ctx.lastMiss?.op === 'put') return 'tutorial.sensorPut';
+    return step.key;
   }
 
   /** Куда показывает стрелка: клетка поля или элемент интерфейса. */
@@ -199,8 +231,28 @@ export class TutorialFlow {
       case 'start':
       case 'telemetry':
         return { kind: 'ui', id: step.kind };
+      case 'sensor':
+        return sensorTarget(ctx);
       default:
         return null;
     }
   }
+}
+
+/**
+ * Подсказка про датчик ведёт по шагам: стрелка над роботом, который промахнулся → рамка вокруг блока,
+ * на котором он промахнулся → рамка вокруг кнопки «Датчик». Не знаем, где был промах, — блок не угадываем.
+ */
+function sensorTarget(ctx: TutorialCtx): Target {
+  const s = ctx.snap;
+  const miss = ctx.lastMiss ?? null;
+  const robot = ctx.selectedRobot === null || ctx.selectedRobot === undefined ? undefined : s.robots.find((r) => r.id === ctx.selectedRobot);
+  if (robot) {
+    if (ctx.picked === 'take' || ctx.picked === 'put') return { kind: 'ui', id: 'sense' };
+    if (!miss || miss.robotId !== robot.id) return null;
+    const p = robot.pendingProgram ?? robot.program;
+    const index = p.findIndex((b, i) => b.op === miss.op && p[i - 1]?.op !== 'sense');
+    return index >= 0 ? { kind: 'block', index } : null;
+  }
+  return miss && s.robots.some((r) => r.id === miss.robotId) ? { kind: 'robot', id: miss.robotId } : null;
 }

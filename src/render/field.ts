@@ -7,6 +7,7 @@ import { TILE } from '../types';
 import type { Dir, LevelData, MachineView, OperatorView, RobotView, SimEvent, SimSnapshot } from '../types';
 import { COLOR, ITEM_COLOR, LAMP, css, robotColor } from '../ui/theme';
 import { CanvasLayer } from './canvas';
+import { cellAt, cellCenter } from './layout';
 import { Fx } from './fx';
 import { LoopLayer } from './loopLayer';
 import type { LoopSpec } from './loopLayer';
@@ -19,6 +20,8 @@ const FX = [0, 1, 0, -1];
 const FY = [-1, 0, 1, 0];
 /** За сколько секунд оператор доходит до новой клетки после нажатия. */
 const OPERATOR_STEP = 0.12;
+/** В показе роботы копии мира тоже делают целый шаг за одно нажатие — доводим их плавно (95 % пути за ~0,13 с). */
+const TEACH_EASE = 0.045;
 
 interface MachineSprite {
   root: Phaser.GameObjects.Container;
@@ -41,6 +44,9 @@ interface RobotSprite {
   /** Сглаженный сдвиг на свою полосу: на поворотах робот плавно перестраивается, а не прыгает. */
   ox: number;
   oy: number;
+  /** Где робот нарисован (в клетках, без сдвига полосы). */
+  cx: number;
+  cy: number;
   seen: boolean;
 }
 
@@ -133,14 +139,18 @@ export class FieldView {
 
   /** Центр клетки в координатах экрана. */
   screenCenter(x: number, y: number): { x: number; y: number } {
-    return { x: this.root.x + (x + 0.5) * TILE * this.scale, y: this.root.y + (y + 0.5) * TILE * this.scale };
+    return cellCenter({ ox: this.root.x, oy: this.root.y }, x, y, TILE * this.scale);
+  }
+
+  /** Где робот нарисован сейчас, в координатах экрана (null — такого робота нет). */
+  robotScreen(id: number): { x: number; y: number } | null {
+    const sp = this.robots.get(id);
+    return sp ? { x: this.root.x + sp.root.x * this.scale, y: this.root.y + sp.root.y * this.scale } : null;
   }
 
   /** Клетка под точкой экрана или null, если точка вне уровня. */
   cellAt(sx: number, sy: number): { x: number; y: number } | null {
-    const x = Math.floor((sx - this.root.x) / (TILE * this.scale));
-    const y = Math.floor((sy - this.root.y) / (TILE * this.scale));
-    return x >= 0 && y >= 0 && x < this.level.width && y < this.level.height ? { x, y } : null;
+    return cellAt({ ox: this.root.x, oy: this.root.y }, sx, sy, this.level.width, this.level.height, TILE * this.scale);
   }
 
   /** Нарисовать снимок. dt — секунды с прошлого кадра (для плавных мелочей). */
@@ -349,12 +359,13 @@ export class FieldView {
     const ring = s.add.circle(0, 0, 19).setStrokeStyle(2, COLOR.text).setVisible(false);
     const root = s.add.container(0, 0, [ring, body, eye, item, wave]);
     this.robotLayer.add(root);
-    return { root, body, eye, item, wave, ring, ox: 0, oy: 0, seen: false };
+    return { root, body, eye, item, wave, ring, ox: 0, oy: 0, cx: 0, cy: 0, seen: false };
   }
 
   private syncRobots(snap: SimSnapshot, dt: number, selected: number | null): void {
     const alive = new Set<number>();
     const a = snap.alpha;
+    const teach = snap.mode === 'teach';
     const blink = Math.floor(this.scene.time.now / 220) % 2 === 0;
     for (const r of snap.robots) {
       alive.add(r.id);
@@ -363,8 +374,15 @@ export class FieldView {
         sp = this.makeRobot(robotColor(r.colorIndex));
         this.robots.set(r.id, sp);
       }
-      const x = r.px + (r.x - r.px) * a;
-      const y = r.py + (r.y - r.py) * a;
+      let x = r.px + (r.x - r.px) * a;
+      let y = r.py + (r.y - r.py) * a;
+      if (teach && sp.seen && Math.abs(x - sp.cx) + Math.abs(y - sp.cy) <= 1.01) {
+        const e = 1 - Math.exp(-dt / TEACH_EASE);
+        x = sp.cx + (x - sp.cx) * e;
+        y = sp.cy + (y - sp.cy) * e;
+      }
+      sp.cx = x;
+      sp.cy = y;
       const parked = r.state === 'idle';
       const pose = robotPose({ x: 0, y: 0, dir: r.dir, dock: r.dock }, parked);
       const k = sp.seen ? Math.min(1, dt * 14) : 1;
@@ -443,7 +461,8 @@ export class FieldView {
       const teaching = snap.operator?.dock === i;
       const color = teaching ? COLOR.teach : owner ? robotColor(owner.colorIndex) : COLOR.faint;
       if (d.ring.strokeColor !== color) d.ring.setStrokeStyle(3, color);
-      d.plus.setVisible(!owner && !teaching && snap.mode === 'plan');
+      // Плюс — «здесь можно показать нового робота»: и до старта, и пока линия работает.
+      d.plus.setVisible(!owner && !teaching && (snap.mode === 'plan' || snap.mode === 'running'));
     });
   }
 
