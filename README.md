@@ -3,8 +3,8 @@
 2D-игра про автоматизацию: покажи роботу работу один раз, запись станет программой из блоков, и робот будет
 повторять её по кругу. GAMBIT Hackathon 2026, трек Gambit «AUTOMATE IT!».
 
-**▶ Играть:** https://yussfv1.github.io/Commit-Deploy/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
-**Запасной адрес:** https://commit-deploy.vercel.app/ — та же игра из `main` на Vercel.<br>
+**▶ Играть:** https://commit-deploy.vercel.app/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
+**Запасной адрес:** https://yussfv1.github.io/Commit-Deploy/ — та же игра из `main` на GitHub Pages.<br>
 **Без интернета:** [`build/web/index.html`](build/web/index.html) — вся игра в одном файле (2,5 МБ), открывается двойным щелчком.
 
 ## 1. Название и команда
@@ -143,10 +143,10 @@ A D, Enter — играть.
 
 ## 4. Запуск
 
-**В браузере (для жюри):** https://yussfv1.github.io/Commit-Deploy/ — Chrome или Firefox, ничего устанавливать не нужно.
-Сайт собирается из `main` автоматически (`.github/workflows/deploy.yml`). Запасной адрес — https://commit-deploy.vercel.app/:
-Vercel подключён к этому репозиторию и сам собирает `main` той же командой `npm run build` (папка `dist/`), а на каждый
-Pull Request выкладывает отдельную ссылку для проверки.
+**В браузере (для жюри):** https://commit-deploy.vercel.app/ — Chrome или Firefox, ничего устанавливать не нужно.
+Vercel подключён к этому репозиторию: после каждого слияния в `main` он сам собирает игру командой `npm run build`
+(папка `dist/`) и выкладывает её, а на каждый Pull Request даёт отдельную ссылку для проверки. Запасной адрес —
+https://yussfv1.github.io/Commit-Deploy/: GitHub Pages собирает тот же `main` после тестов (`.github/workflows/deploy.yml`).
 
 **Без интернета и без установки:** [`build/web/index.html`](build/web/index.html) — та же игра одним файлом (2,5 МБ):
 код, картинки и шрифт встроены в страницу. Скачать файл и открыть двойным щелчком. Обычную папку `dist/` так открыть
@@ -174,12 +174,12 @@ npm run dev
 | `npm run preview` | готовая сборка на http://localhost:4173 |
 | `node scripts/make-offline.mjs` | собирает `build/web/index.html` — игру одним файлом |
 
-**Особые адреса.** `?pitch` (например, https://yussfv1.github.io/Commit-Deploy/?pitch) сразу открывает демо для защиты:
+**Особые адреса.** `?pitch` (например, https://commit-deploy.vercel.app/?pitch) сразу открывает демо для защиты:
 уровень 4, линия из двух роботов уже работает, выбран слепой робот, который промахивается у пресса. `?stress` —
 проверка производительности: 8 роботов на скорости ×4 и счётчик кадров.
 
-**Без интернета.** Во время игры сеть не нужна. Проверено 12.11: при загрузке живого сайта в Chrome все запросы идут
-на `yussfv1.github.io`, ошибок в консоли нет; файл `build/web/index.html` работает по `file://` в Chrome и Firefox:
+**Без интернета.** Во время игры сеть не нужна. Проверено 12.11 и 13.11: при загрузке живого сайта все запросы идут
+только на его же адрес (`commit-deploy.vercel.app` или `yussfv1.github.io`), ошибок в консоли нет; файл `build/web/index.html` работает по `file://` в Chrome и Firefox:
 120 FPS, ошибок нет. Игра ничего не собирает и не отправляет, аналитики нет; «Телеметрия» — панель показателей
 линии внутри игры.
 

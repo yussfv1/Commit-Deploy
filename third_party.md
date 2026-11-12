@@ -82,8 +82,8 @@ MPL-2.0 касаются распространения файлов самой 
 | actions/setup-node | v7 | MIT | https://github.com/actions/setup-node | Там же: поставить Node.js 24 и кэш npm |
 | actions/upload-pages-artifact | v5 | MIT | https://github.com/actions/upload-pages-artifact | `.github/workflows/deploy.yml`: упаковать `dist/` |
 | actions/deploy-pages | v5 | MIT | https://github.com/actions/deploy-pages | `.github/workflows/deploy.yml`: выложить сборку на GitHub Pages |
-| GitHub Actions и GitHub Pages | — | Сервис GitHub, в сборку не входит | https://docs.github.com/en/pages | Тесты и сборка на каждый Pull Request, веб-версия игры https://yussfv1.github.io/Commit-Deploy/ |
-| Vercel | — | Сервис Vercel, в сборку не входит | https://vercel.com/docs | Запасной адрес игры https://commit-deploy.vercel.app/: собирает `main` командой `npm run build`, на каждый Pull Request — отдельная ссылка |
+| GitHub Actions и GitHub Pages | — | Сервис GitHub, в сборку не входит | https://docs.github.com/en/pages | Тесты и сборка на каждый Pull Request, запасной адрес игры https://yussfv1.github.io/Commit-Deploy/ |
+| Vercel | — | Сервис Vercel, в сборку не входит | https://vercel.com/docs | Основной адрес игры https://commit-deploy.vercel.app/: собирает `main` командой `npm run build`, на каждый Pull Request — отдельная ссылка |
 
 ## AI-инструменты
 
@@ -166,7 +166,9 @@ Fonts и другим сайтам нет. `TMinus` — только внутр�
 |---|---|---|---|---|
 | PT Sans, PT Sans Narrow, PT Mono (ParaType) | Системные или Google Fonts (флаг `--web-fonts` в `tools/build.mjs`) | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl | Текст слайдов, встроены в PDF |
 | Google Chrome | Установленный браузер | Проприетарная, Google | https://www.google.com/chrome/ | Печать PDF (`tools/build.mjs`), в репозиторий не входит |
-| Core Image (Apple) | Из macOS | Проприетарная, Apple; входит в macOS | https://developer.apple.com/documentation/coreimage | QR-коды на слайдах 6 и 10 (`tools/qr_gen.swift`) |
+| node-qrcode 1.5.4 | npm, ставился во временную папку, в репозиторий не входит | MIT | https://github.com/soldair/node-qrcode | QR-коды на слайдах 6 и 10 на адрес commit-deploy.vercel.app (13.11, уровень коррекции M, тихая зона 4 модуля) |
+| jsQR 1.4.0 | npm, там же | Apache-2.0 | https://github.com/cozmo/jsQR | Проверка: каждый QR декодирован обратно в свой адрес |
+| Core Image (Apple) | Из macOS | Проприетарная, Apple; входит в macOS | https://developer.apple.com/documentation/coreimage | Штатный генератор QR на Mac (`tools/make_qr.py`, `tools/qr_gen.swift`), адреса в нём те же |
 
 ## Что не используется
 
