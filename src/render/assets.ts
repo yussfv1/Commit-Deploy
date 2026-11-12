@@ -6,7 +6,7 @@ import type Phaser from 'phaser';
 import { MUSIC, SFX, audio } from '../ui/audio';
 import { iconKey } from './textures';
 
-const SHIPPED = import.meta.glob('/public/assets/**/*.{png,wav,mp3,woff2}', {
+const SHIPPED = import.meta.glob('/public/assets/**/*.{png,wav,mp3,woff2,ttf}', {
   eager: true,
   query: '?url',
   import: 'default',
@@ -41,7 +41,10 @@ export const ICON_FILES = [
 /** Звуки: public/assets/sfx/<имя>.wav или .mp3 (если лежат оба — берём WAV). */
 const SFX_EXT = ['wav', 'mp3'] as const;
 const FONT_FAMILY = 'TMinus';
-const FONT_FILE = 'fonts/main.woff2';
+/** Шрифт роли C: сначала ищем WOFF2, потом TTF. Сейчас лежит Nunito (OFL) в TTF с осью толщины 200…1000. */
+const FONT_FILES = ['fonts/main.woff2', 'fonts/main.ttf'] as const;
+/** Переменный шрифт отдаёт любую толщину из диапазона: так «жирный» в игре — настоящий, а не дорисованный браузером. */
+const FONT_WEIGHTS = '200 1000';
 const TIMEOUT_MS = 8000;
 
 /**
@@ -130,10 +133,10 @@ async function loadMusic(name: string): Promise<void> {
  * Ждём загрузку не дольше полутора секунд: дальше игра идёт на системном шрифте.
  */
 async function loadFont(): Promise<void> {
-  const url = assetUrl(FONT_FILE);
+  const url = FONT_FILES.map((f) => assetUrl(f)).find((u) => u !== null) ?? null;
   if (!url || typeof document === 'undefined' || !document.fonts || typeof FontFace === 'undefined') return;
   try {
-    const face = new FontFace(FONT_FAMILY, `url(${url})`);
+    const face = new FontFace(FONT_FAMILY, `url(${url})`, { weight: FONT_WEIGHTS });
     const loaded = face
       .load()
       .then((f) => {

@@ -107,10 +107,15 @@ export const ITEM_COLOR: Record<ItemType, number> = {
 export const MACHINE_TYPES: readonly MachineType[] = ['depot', 'tank', 'press', 'assembler', 'pad', 'shelf'];
 
 /**
- * Шрифт: файл роли C, если он есть; иначе Bahnschrift — инженерный DIN, который стоит в Windows 10/11
- * (компьютер жюри), на Mac — PT Sans, сделанный для русской навигации. Оба с полной кириллицей.
+ * Шрифт: файл роли C — Nunito (OFL) из public/assets/fonts, со скруглёнными концами, как линии логотипа.
+ * Если файл не загрузился — Bahnschrift из Windows 10/11, на Mac — PT Sans. Все с полной кириллицей.
  */
 export const FONT = "TMinus, Bahnschrift, 'PT Sans', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+/**
+ * Толщина букв. Обычный текст чуть плотнее стандартного (600 вместо 400): на холсте нет ClearType,
+ * и тонкие линии выглядят мыльными. Жирный — 800.
+ */
+export const WEIGHT = { normal: '600', bold: '800' } as const;
 /** Моноширинный — только там, где на экране код (программа робота текстом). */
 export const MONO = "'PT Mono', Consolas, 'Cascadia Mono', Menlo, 'DejaVu Sans Mono', monospace";
 

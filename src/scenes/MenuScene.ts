@@ -65,7 +65,8 @@ export class MenuScene extends Phaser.Scene {
     // Под «Об игре»: коротко, что делать в игре, и главные горячие клавиши на поле.
     // (R «заново» — в меню паузы и в итогах, M «к уровням» работает и на поле.)
     txt(this, X0, 540, t('menu.howTitle'), { size: SIZE.micro, color: COLOR.faint, caps: true });
-    const how = txt(this, X0, 558, t('menu.how'), { size: SIZE.small, color: COLOR.dim, wrap: 400, lineSpacing: 3 });
+    // Ширина — вся левая колонка до живой линии: так текст укладывается в две строки и клавиши не наезжают на подвал.
+    const how = txt(this, X0, 558, t('menu.how'), { size: SIZE.small, color: COLOR.dim, wrap: DEMO_X - X0 - 24, lineSpacing: 3 });
     const keysY = Math.round(558 + how.height + 20);
     let kx = X0;
     for (const [key, label] of [
