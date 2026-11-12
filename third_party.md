@@ -78,7 +78,7 @@ MPL-2.0 касаются распространения файлов самой 
 | actions/setup-node | v7 | MIT | https://github.com/actions/setup-node | Там же: поставить Node.js 24 и кэш npm |
 | actions/upload-pages-artifact | v5 | MIT | https://github.com/actions/upload-pages-artifact | `.github/workflows/deploy.yml`: упаковать `dist/` |
 | actions/deploy-pages | v5 | MIT | https://github.com/actions/deploy-pages | `.github/workflows/deploy.yml`: выложить сборку на GitHub Pages |
-| GitHub Actions и GitHub Pages | — | Сервис GitHub, в сборку не входит | https://docs.github.com/en/pages | Тесты и сборка на каждый Pull Request, веб-версия игры https://yussfv1.github.io/t-minus/ |
+| GitHub Actions и GitHub Pages | — | Сервис GitHub, в сборку не входит | https://docs.github.com/en/pages | Тесты и сборка на каждый Pull Request, веб-версия игры https://yussfv1.github.io/Commit-Deploy/ |
 
 ## AI-инструменты
 
@@ -151,7 +151,7 @@ MPL-2.0 касаются распространения файлов самой 
 | Звуковых файлов и музыки | В `public/` и `dist/` нет `.mp3`, `.wav`, `.ogg`, `.m4a` (команды 2 и 3) |
 | Файлов шрифтов | Нет `.woff`, `.woff2`, `.ttf`, `.otf` (команды 2 и 3); шрифты указаны только именами (команда 4) |
 | Чужого кода, кроме Phaser | Карта исходников сборки: из `node_modules` в игру попадает один файл — `phaser/dist/phaser.js`, остальное — наши файлы из `src/` и `public/` (команда 7) |
-| Внешних запросов, CDN, API, рекламы и аналитики | Адреса в коде и сборке (команда 5), других нет: пространства имён `www.w3.org` (SVG, XHTML); `phaser.io` внутри Phaser — это текст баннера в консоли браузера и значение по умолчанию поля `gameURL`, по нему ничего не загружается; в комментариях к коду может встречаться адрес нашей же игры `yussfv1.github.io/t-minus`. В сеть ходит только `src/render/assets.ts`, и только за своими файлами `assets/` рядом с игрой |
+| Внешних запросов, CDN, API, рекламы и аналитики | Адреса в коде и сборке (команда 5), других нет: пространства имён `www.w3.org` (SVG, XHTML); `phaser.io` внутри Phaser — это текст баннера в консоли браузера и значение по умолчанию поля `gameURL`, по нему ничего не загружается; в комментариях к коду может встречаться адрес нашей же игры `yussfv1.github.io/Commit-Deploy`. В сеть ходит только `src/render/assets.ts`, и только за своими файлами `assets/` рядом с игрой |
 | Сбора персональных данных | `src/ui/storage.ts`: в `localStorage` браузера лежат только громкость, язык, тема оформления (тёмная или светлая) и рекорды уровней (числа). На сервер ничего не уходит |
 | Чужих уровней, персонажей, логотипов и брендов | Уровни `src/data/levels/` и вся графика сделаны командой. Игры, которые нас вдохновили, названы на экране «Об игре»: The Last Clockwinder, The Farmer Was Replaced, игры Zachtronics. Их код, арт и уровни мы не использовали |
 

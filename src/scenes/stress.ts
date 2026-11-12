@@ -1,5 +1,5 @@
 // Стресс-проверка производительности (задача 10 брифа): уровень «Такт», 8 роботов, скорость ×4,
-// счётчик кадров включён. Открыть: адрес игры с ?stress, например https://yussfv1.github.io/t-minus/?stress
+// счётчик кадров включён. Открыть: адрес игры с ?stress, например https://yussfv1.github.io/Commit-Deploy/?stress
 // Роботы и программы — те же, что в стресс-тесте симуляции (src/sim/__tests__/game.test.ts).
 import type { Simulation } from '../sim';
 import { EXAMPLE_LEVELS } from '../sim/examples';

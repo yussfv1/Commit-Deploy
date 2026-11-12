@@ -3,7 +3,7 @@
 2D-игра про автоматизацию: покажи роботу работу один раз, запись станет программой из блоков, и робот будет
 повторять её по кругу. GAMBIT Hackathon 2026, трек Gambit «AUTOMATE IT!».
 
-**▶ Играть:** https://yussfv1.github.io/t-minus/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
+**▶ Играть:** https://yussfv1.github.io/Commit-Deploy/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
 **Без интернета:** [`build/web/index.html`](build/web/index.html) — вся игра в одном файле, открывается двойным щелчком.
 
 ## 1. Название и команда
@@ -16,7 +16,7 @@
 | Школа | Асмир и Жалгасхан — НИШ Актобе (Назарбаев Интеллектуальная школа); Ерсултан — школа № 51 |
 | Капитан | Ерсултан (GitHub `smqlr`) |
 | Контакт | Telegram капитана [@smq1r](https://t.me/smq1r) |
-| Репозиторий | ведёт Асмир (GitHub `yussfv1`), вопросы по коду — в [Issues](https://github.com/yussfv1/t-minus/issues) |
+| Репозиторий | ведёт Асмир (GitHub `yussfv1`), вопросы по коду — в [Issues](https://github.com/yussfv1/Commit-Deploy/issues) |
 | Видео-демо и презентация | готовятся; ссылки появятся здесь и в форме хакатона |
 
 | Участник | Роль | Зона ответственности | Имя в истории коммитов |
@@ -137,7 +137,7 @@ A D, Enter — играть.
 
 ## 4. Запуск
 
-**В браузере (для жюри):** https://yussfv1.github.io/t-minus/ — Chrome или Firefox, ничего устанавливать не нужно.
+**В браузере (для жюри):** https://yussfv1.github.io/Commit-Deploy/ — Chrome или Firefox, ничего устанавливать не нужно.
 Сайт собирается из `main` автоматически (`.github/workflows/deploy.yml`).
 
 **Без интернета и без установки:** [`build/web/index.html`](build/web/index.html) — та же игра одним файлом (1,3 МБ):
@@ -149,8 +149,8 @@ A D, Enter — играть.
 `engines` файла `package.json`; проверено на Node 24 в CI и на Node 26.7 локально).
 
 ```bash
-git clone https://github.com/yussfv1/t-minus.git
-cd t-minus
+git clone https://github.com/yussfv1/Commit-Deploy.git
+cd Commit-Deploy
 npm ci
 npm run dev
 ```
@@ -166,7 +166,7 @@ npm run dev
 | `npm run preview` | готовая сборка на http://localhost:4173 |
 | `node scripts/make-offline.mjs` | собирает `build/web/index.html` — игру одним файлом |
 
-**Особые адреса.** `?pitch` (например, https://yussfv1.github.io/t-minus/?pitch) сразу открывает демо для защиты:
+**Особые адреса.** `?pitch` (например, https://yussfv1.github.io/Commit-Deploy/?pitch) сразу открывает демо для защиты:
 уровень 4, линия из двух роботов уже работает, выбран слепой робот, который промахивается у пресса. `?stress` —
 проверка производительности: 8 роботов на скорости ×4 и счётчик кадров.
 
