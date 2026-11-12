@@ -4,6 +4,7 @@
 повторять её по кругу. GAMBIT Hackathon 2026, трек Gambit «AUTOMATE IT!».
 
 **▶ Играть:** https://yussfv1.github.io/Commit-Deploy/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
+**Запасной адрес:** https://commit-deploy.vercel.app/ — та же игра из `main` на Vercel.<br>
 **Без интернета:** [`build/web/index.html`](build/web/index.html) — вся игра в одном файле (2,5 МБ), открывается двойным щелчком.
 
 ## 1. Название и команда
@@ -143,7 +144,9 @@ A D, Enter — играть.
 ## 4. Запуск
 
 **В браузере (для жюри):** https://yussfv1.github.io/Commit-Deploy/ — Chrome или Firefox, ничего устанавливать не нужно.
-Сайт собирается из `main` автоматически (`.github/workflows/deploy.yml`).
+Сайт собирается из `main` автоматически (`.github/workflows/deploy.yml`). Запасной адрес — https://commit-deploy.vercel.app/:
+Vercel подключён к этому репозиторию и сам собирает `main` той же командой `npm run build` (папка `dist/`), а на каждый
+Pull Request выкладывает отдельную ссылку для проверки.
 
 **Без интернета и без установки:** [`build/web/index.html`](build/web/index.html) — та же игра одним файлом (2,5 МБ):
 код, картинки и шрифт встроены в страницу. Скачать файл и открыть двойным щелчком. Обычную папку `dist/` так открыть

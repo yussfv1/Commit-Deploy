@@ -83,6 +83,7 @@ MPL-2.0 касаются распространения файлов самой 
 | actions/upload-pages-artifact | v5 | MIT | https://github.com/actions/upload-pages-artifact | `.github/workflows/deploy.yml`: упаковать `dist/` |
 | actions/deploy-pages | v5 | MIT | https://github.com/actions/deploy-pages | `.github/workflows/deploy.yml`: выложить сборку на GitHub Pages |
 | GitHub Actions и GitHub Pages | — | Сервис GitHub, в сборку не входит | https://docs.github.com/en/pages | Тесты и сборка на каждый Pull Request, веб-версия игры https://yussfv1.github.io/Commit-Deploy/ |
+| Vercel | — | Сервис Vercel, в сборку не входит | https://vercel.com/docs | Запасной адрес игры https://commit-deploy.vercel.app/: собирает `main` командой `npm run build`, на каждый Pull Request — отдельная ссылка |
 
 ## AI-инструменты
 
