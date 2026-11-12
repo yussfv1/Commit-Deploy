@@ -70,18 +70,21 @@ export function fieldFit(levelW: number, levelH: number): FieldFit {
   };
 }
 
-export function cellCenter(o: FieldOrigin, x: number, y: number): { x: number; y: number } {
-  return { x: o.ox + (x + 0.5) * TILE, y: o.oy + (y + 0.5) * TILE };
+/** Центр клетки на экране. tile — размер клетки на экране (у уменьшенной карты в меню он меньше 64). */
+export function cellCenter(o: FieldOrigin, x: number, y: number, tile: number = TILE): { x: number; y: number } {
+  return { x: o.ox + (x + 0.5) * tile, y: o.oy + (y + 0.5) * tile };
 }
 
+/** Клетка под точкой экрана или null, если точка вне уровня. */
 export function cellAt(
   o: FieldOrigin,
   px: number,
   py: number,
   levelW: number,
   levelH: number,
+  tile: number = TILE,
 ): { x: number; y: number } | null {
-  const x = Math.floor((px - o.ox) / TILE);
-  const y = Math.floor((py - o.oy) / TILE);
+  const x = Math.floor((px - o.ox) / tile);
+  const y = Math.floor((py - o.oy) / tile);
   return x >= 0 && y >= 0 && x < levelW && y < levelH ? { x, y } : null;
 }

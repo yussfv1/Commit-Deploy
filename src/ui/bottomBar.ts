@@ -84,6 +84,13 @@ export class BottomBar {
     return b.root.visible ? { x: b.x, y: b.y, w: b.w, h: b.h } : null;
   }
 
+  /** Подпись «Tab — подробнее» у мини-полос: её обводит обучение, когда просит открыть телеметрию. */
+  telemetryAnchor(): { x: number; y: number; w: number; h: number } | null {
+    if (!this.miniKey.visible) return null;
+    const b = this.miniKey.getBounds();
+    return { x: b.centerX, y: b.centerY, w: Math.ceil(b.width) + 10, h: Math.ceil(b.height) + 6 };
+  }
+
   update(s: SimSnapshot, buyType: MachineType | null): void {
     const item = t(`item.${s.targetItem}.name`);
     if (s.mode === 'teach') {

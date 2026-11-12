@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Simulation } from '../../sim';
 import { EXAMPLE_DEFS, EXAMPLE_LEVELS } from '../../sim/examples';
 import type { Block, RobotView, SimSnapshot } from '../../types';
-import { barRects, bottleneckHintKey, bottleneckSpot, longestCycle, lostSeconds, machineLoads, pace, robotBars, telemetrySignature } from '../telemetryModel';
+import { barRects, bottleneckHintKey, bottleneckSpot, longestCycle, machineLoads, pace, robotBars, telemetrySignature } from '../telemetryModel';
 
 const robot = (over: Partial<RobotView>): RobotView => ({
   id: 1,
@@ -36,7 +36,6 @@ describe('полосы телеметрии', () => {
     ]);
     expect(bars.map((b) => b.total)).toEqual([40, 60, 0]);
     expect(longestCycle(bars)).toBe(60);
-    expect(lostSeconds(bars[0])).toBe(1);
   });
 
   it('темп: пока ничего не доставлено — оценки нет', () => {

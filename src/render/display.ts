@@ -13,8 +13,6 @@ let reapply: (() => void) | null = null;
 
 export const getRenderScale = (): number => renderScale;
 
-export const getScaleCap = (): number => scaleCap;
-
 /**
  * Во сколько раз холст плотнее логических 1280×720: от 0,5 до 2.
  * Ширина холста совпадает с числом настоящих пикселей экрана под игрой (W × scale — целое число),

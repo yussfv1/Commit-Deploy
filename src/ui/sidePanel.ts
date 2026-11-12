@@ -7,7 +7,7 @@ import { isActionOp } from '../sim';
 import type { LevelData, MachineView, RobotView, SimSnapshot } from '../types';
 import { BlockStrip } from './blocks';
 import { num, t } from './i18n';
-import { codeLineAt, toCode } from './programModel';
+import { canChangeWait, codeLineAt, toCode } from './programModel';
 import { COLOR, LAMP, SIZE, robotColor } from './theme';
 import { Button, rule, setColor, setText, txt } from './widgets';
 
@@ -48,7 +48,18 @@ const X = PANEL.x + 16;
 const CW = PANEL.w - 32;
 const TOP = PANEL.y + 16;
 const BOTTOM = PANEL.y + PANEL.h - 16;
-const CODE_LINES = 13;
+/** Где начинается лента блоков или текст программы. */
+const LIST_Y = TOP + 64;
+const ROW_STEP = 40;
+const BUTTON_H = 34;
+/** Верхний край первого ряда кнопок робота. */
+const BUTTONS_TOP = BOTTOM - 16 - 4 * ROW_STEP - BUTTON_H / 2;
+/** Место под пометку «правка со следующего круга» (две строки) с отступами — его не занимают ни лента, ни код. */
+const NOTE_ROOM = 12 + 36 + 12;
+const LINE_H = 20;
+/** Сколько строк ленты блоков (по 32 px) и строк кода помещается над кнопками вместе с пометкой. */
+const STRIP_ROWS = Math.floor((BUTTONS_TOP - NOTE_ROOM - LIST_Y + 4) / 32);
+const CODE_LINES = Math.floor((BUTTONS_TOP - NOTE_ROOM - LIST_Y) / LINE_H);
 
 export class SidePanel {
   private readonly scene: Phaser.Scene;
@@ -67,11 +78,14 @@ export class SidePanel {
   private readonly sellButton: Button;
   private readonly finish: Button;
   private readonly teachCopy: Button;
+  private readonly numberOf: (robotId: number) => number;
   private shown = '';
 
-  constructor(scene: Phaser.Scene, level: LevelData, handlers: PanelHandlers) {
+  /** numberOf — номер робота для заголовка («Робот 2»), общий с телеметрией. */
+  constructor(scene: Phaser.Scene, level: LevelData, handlers: PanelHandlers, numberOf: (robotId: number) => number) {
     this.scene = scene;
     this.level = level;
+    this.numberOf = numberOf;
     const d = DEPTH.ui;
     scene.add.rectangle(PANEL.x, PANEL.y, PANEL.w, PANEL.h, COLOR.chrome).setOrigin(0, 0).setDepth(d);
     rule(scene, PANEL.x, PANEL.y, 1, PANEL.h).setDepth(d);
@@ -80,10 +94,10 @@ export class SidePanel {
     this.icon = scene.add.image(X + 10, TOP + 10, iconKey('depot')).setDisplaySize(22, 22).setDepth(d + 1);
     this.title = txt(scene, X, TOP, '', { size: SIZE.body, bold: true }).setDepth(d + 1);
     this.sub = txt(scene, X, TOP + 26, '', { size: SIZE.small, color: COLOR.dim, wrap: CW }).setDepth(d + 1);
-    this.body = txt(scene, X, TOP + 64, '', { size: SIZE.small, color: COLOR.dim, wrap: CW, lineSpacing: 5 }).setDepth(d + 1);
+    this.body = txt(scene, X, LIST_Y, '', { size: SIZE.small, color: COLOR.dim, wrap: CW, lineSpacing: 5 }).setDepth(d + 1);
     this.note = txt(scene, X, 0, '', { size: SIZE.small, color: COLOR.warn, wrap: CW }).setDepth(d + 1);
 
-    this.strip = new BlockStrip(scene, X, TOP + 64, CW, 8, d + 1);
+    this.strip = new BlockStrip(scene, X, LIST_Y, CW, STRIP_ROWS, d + 1);
     this.strip.setPickHandler((i) => handlers.pick(i));
 
     this.codeBar = scene.add.rectangle(X - 8, 0, 3, 18, COLOR.text).setOrigin(0, 0).setDepth(d + 1);
@@ -92,11 +106,11 @@ export class SidePanel {
     const half = (CW - 8) / 2;
     const at = (col: number, row: number, wide = false): { x: number; y: number; w: number } => ({
       x: wide ? X + CW / 2 : X + half / 2 + col * (half + 8),
-      y: BOTTOM - 16 - (4 - row) * 40,
+      y: BOTTOM - 16 - (4 - row) * ROW_STEP,
       w: wide ? CW : half,
     });
     const make = (pos: { x: number; y: number; w: number }, label: string, onClick: () => void, kind: 'normal' | 'danger' | 'primary' = 'normal'): Button =>
-      new Button(scene, pos.x, pos.y, { w: pos.w, h: 34, label, size: SIZE.small, kind, depth: d + 1, onClick });
+      new Button(scene, pos.x, pos.y, { w: pos.w, h: BUTTON_H, label, size: SIZE.small, kind, depth: d + 1, onClick });
 
     this.finish = make(at(0, 4, true), t('teach.finish'), () => handlers.finishTeach(), 'primary');
     // Копию со сдвигом можно заказать прямо во время показа: она встанет на док вместе с роботом.
@@ -117,16 +131,26 @@ export class SidePanel {
     this.sellButton = make(at(0, 4, true), t('machine.sell'), () => handlers.sell(), 'danger');
   }
 
-  /** Центр и размер кнопки, которую подсвечивает обучение. В показе «копия» — кнопка копии в панели показа. */
-  anchor(id: 'finish' | 'copy'): { x: number; y: number; w: number; h: number } | null {
-    const b = id === 'finish' ? this.finish : this.teachCopy.root.visible ? this.teachCopy : this.robotButtons.copy;
-    return b.root.visible ? { x: b.x, y: b.y, w: b.w, h: b.h } : null;
+  /**
+   * Центр и размер кнопки, которую подсвечивает обучение. «Датчик» — только когда его можно нажать.
+   * «Копия» в показе — кнопка копии в панели показа, иначе — на панели робота.
+   */
+  anchor(id: 'finish' | 'copy' | 'sense'): { x: number; y: number; w: number; h: number } | null {
+    const copy = this.teachCopy.root.visible ? this.teachCopy : this.robotButtons.copy;
+    const b = id === 'finish' ? this.finish : id === 'copy' ? copy : this.robotButtons.sense;
+    if (!b.root.visible || (id === 'sense' && !b.isEnabled())) return null;
+    return { x: b.x, y: b.y, w: b.w, h: b.h };
+  }
+
+  /** Блок программы на ленте (для рамки обучения) или null, если ленты сейчас не видно. */
+  blockAnchor(index: number): { x: number; y: number; w: number; h: number } | null {
+    return this.strip.chipBox(index);
   }
 
   private ensureCode(): void {
     if (this.code.length > 0) return;
     for (let i = 0; i < CODE_LINES; i++) {
-      this.code.push(txt(this.scene, X, TOP + 64 + i * 20, '', { size: SIZE.small, mono: true }).setDepth(DEPTH.ui + 1));
+      this.code.push(txt(this.scene, X, LIST_Y + i * LINE_H, '', { size: SIZE.small, mono: true }).setDepth(DEPTH.ui + 1));
     }
   }
 
@@ -181,7 +205,7 @@ export class SidePanel {
     const op = snap.operator;
     setText(this.sub, t('teach.counter', { n: op?.blocks ?? snap.recording.length, max: this.level.maxProgram }));
     this.strip.set(snap.recording, snap.recording.length - 1, -1, COLOR.teach);
-    const stripBottom = TOP + 64 + this.strip.visibleHeight;
+    const stripBottom = LIST_Y + this.strip.visibleHeight;
     this.body.setY(stripBottom + 16).setVisible(true);
     setText(this.body, t('teach.keys'));
     this.finish.setEnabled(snap.canFinishTeach);
@@ -193,7 +217,7 @@ export class SidePanel {
     const color = robotColor(r.colorIndex);
     setColor(this.title, COLOR.text);
     this.swatch.setFillStyle(color);
-    setText(this.title, t('robot.title', { n: r.id + 1, dock: r.dock + 1 }));
+    setText(this.title, t('robot.title', { n: this.numberOf(r.id), dock: r.dock + 1 }));
     setText(
       this.sub,
       r.cycleTime > 0
@@ -214,22 +238,24 @@ export class SidePanel {
         setColor(this.code[i], li === at ? COLOR.text : li === -1 ? COLOR.faint : COLOR.dim);
       }
       const row = at + 1 - first;
-      this.codeBar.setVisible(at >= 0 && row >= 0 && row < CODE_LINES).setFillStyle(color).setY(TOP + 64 + row * 20);
-      bottom = TOP + 64 + CODE_LINES * 20;
+      this.codeBar.setVisible(at >= 0 && row >= 0 && row < CODE_LINES).setFillStyle(color).setY(LIST_Y + row * LINE_H);
+      // Пометка о правке встаёт сразу под последней строкой кода, а не под пустыми строками окна.
+      bottom = LIST_Y + Math.min(CODE_LINES, lines.length + 1) * LINE_H;
     } else {
       this.strip.set(program, pc, state.pick, color);
-      bottom = TOP + 64 + this.strip.visibleHeight;
+      bottom = LIST_Y + this.strip.visibleHeight;
     }
     this.note.setY(bottom + 12).setVisible(r.pendingProgram !== null);
     setText(this.note, t('robot.pending'));
 
-    const picked = program[state.pick];
+    // Программа как код — только для чтения: выделенного блока там не видно, поэтому и править его нечем.
+    const picked = state.code ? undefined : program[state.pick];
     const senseAllowed = this.level.allowedOps.includes('sense');
     const b = this.robotButtons;
     b.remove.setEnabled(!!picked && program.length > 1);
     b.sense.setEnabled(senseAllowed && !!picked && (picked.op === 'sense' || isActionOp(picked.op)));
-    b.waitLess.setEnabled(!!picked && picked.op === 'wait');
-    b.waitMore.setEnabled(!!picked);
+    b.waitLess.setEnabled(canChangeWait(picked, -1));
+    b.waitMore.setEnabled(canChangeWait(picked, 1));
     b.copy.setEnabled(snap.energyLeft >= snap.robotCost + (r.hasSensor ? this.level.sensorCost : 0));
     b.code.setActive(state.code);
   }
@@ -246,7 +272,7 @@ export class SidePanel {
     if (m.kind === 'processor' || m.kind === 'source') lines.push(t('machine.load', { n: Math.round(m.utilization * 100) }));
     if (m.bought) lines.push(t('machine.sellHint'));
     setText(this.body, lines.join('\n\n'));
-    this.body.setY(TOP + 64).setVisible(true);
+    this.body.setY(LIST_Y).setVisible(true);
     this.sellButton.setVisible(m.bought);
   }
 }

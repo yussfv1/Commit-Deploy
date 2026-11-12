@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Block } from '../../types';
-import { changeWait, codeLineAt, hasSenseBefore, parseProgram, programSteps, removeBlock, sameProgram, toCode, toggleSense } from '../programModel';
+import { canChangeWait, changeWait, codeLineAt, parseProgram, programSteps, removeBlock, toCode, toggleSense } from '../programModel';
 
 const R: Block = { op: 'right' };
 const L: Block = { op: 'left' };
@@ -25,7 +25,6 @@ describe('правка программы', () => {
     expect(withSense).toEqual([L, S, T, R, P]);
     expect(toggleSense(withSense ?? [], 2)).toEqual(p);
     expect(toggleSense(withSense ?? [], 1)).toEqual(p);
-    expect(hasSenseBefore(withSense ?? [], 2)).toBe(true);
   });
 
   it('датчик не ставится к шагу или ожиданию', () => {
@@ -44,6 +43,15 @@ describe('правка программы', () => {
     expect(changeWait([R, L], 0, -1)).toBeNull();
   });
 
+  it('«+» у ДАТЧИКА недоступен: ЖДАТЬ встал бы между датчиком и действием', () => {
+    expect(changeWait([L, S, T], 1, 1)).toBeNull();
+    expect(canChangeWait(S, 1)).toBe(false);
+    expect(canChangeWait(T, 1)).toBe(true);
+    expect(canChangeWait(W(2), -1)).toBe(true);
+    expect(canChangeWait(R, -1)).toBe(false);
+    expect(canChangeWait(undefined, 1)).toBe(false);
+  });
+
   it('исходная программа не меняется', () => {
     const p = [L, T, W(2)];
     const copy = JSON.parse(JSON.stringify(p)) as Block[];
@@ -55,8 +63,6 @@ describe('правка программы', () => {
 
   it('длина круга: датчик не занимает шагов', () => {
     expect(programSteps([L, S, T, W(3)])).toBe(5);
-    expect(sameProgram([W(2), R], [{ op: 'wait', n: 2 }, { op: 'right' }])).toBe(true);
-    expect(sameProgram([W(2)], [W(3)])).toBe(false);
   });
 });
 

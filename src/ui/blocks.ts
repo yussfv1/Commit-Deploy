@@ -88,6 +88,13 @@ export class BlockStrip {
     this.mark(this.pickFrame, pick, (c, y) => this.pickFrame.setPosition(c.x - 1, y - 1).setSize(c.w + 2, CHIP_H + 2));
   }
 
+  /** Центр и размер блока index на экране или null, если лента скрыта или блок за краем окна. */
+  chipBox(index: number): { x: number; y: number; w: number; h: number } | null {
+    const c = this.chips[index];
+    if (!this.root.visible || !c || c.row < this.start || c.row >= this.start + this.maxRows) return null;
+    return { x: this.root.x + c.x + c.w / 2, y: this.root.y + (c.row - this.start) * ROW + CHIP_H / 2, w: c.w, h: CHIP_H };
+  }
+
   destroy(): void {
     this.root.destroy();
   }

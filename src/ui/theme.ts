@@ -141,6 +141,7 @@ export function mix(a: number, b: number, t: number): number {
 }
 
 export const darken = (color: number, amount: number): number => mix(color, COLOR.black, amount);
+/** Светлее к белому — блик на корпусе пиксельного робота (render/robotSprites.ts). */
 export const lighten = (color: number, amount: number): number => mix(color, COLOR.white, amount);
 
 /** Цвет робота по индексу из снимка (в светлой теме — более тёмный вариант того же оттенка). */

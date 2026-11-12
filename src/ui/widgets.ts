@@ -1,4 +1,4 @@
-// Кирпичики интерфейса: текст, кнопка, ползунок-фейдер, сообщения, подсказка у курсора.
+// Кирпичики интерфейса: текст, кнопка, ползунок-фейдер, сообщения.
 import Phaser from 'phaser';
 import { ensureTexture, roundRect } from '../render/canvas';
 import { getRenderScale } from '../render/display';
@@ -474,38 +474,5 @@ export class Toasts {
         box.destroy();
       },
     });
-  }
-}
-
-// ---------- подсказка у курсора ----------
-
-export class Tooltip {
-  private readonly scene: Phaser.Scene;
-  private readonly root: Phaser.GameObjects.Container;
-  private readonly bg: Phaser.GameObjects.Image;
-  private readonly label: Phaser.GameObjects.Text;
-  private shown = '';
-
-  constructor(scene: Phaser.Scene, depth: number) {
-    this.scene = scene;
-    this.label = txt(scene, 0, 0, '', { size: SIZE.small, ox: 0.5, oy: 0.5 });
-    this.bg = scene.add.image(0, 0, '__DEFAULT');
-    this.root = scene.add.container(0, 0, [this.bg, this.label]).setDepth(depth).setVisible(false);
-  }
-
-  show(message: string, x: number, y: number): void {
-    if (message !== this.shown) {
-      this.shown = message;
-      this.label.setText(message);
-      const w = Math.ceil(this.label.width + 20);
-      const h = 28;
-      this.bg.setTexture(plateKey(this.scene, w, h, { fill: COLOR.chrome, stroke: COLOR.rule, radius: RADIUS.chip })).setDisplaySize(w, h);
-    }
-    const half = this.bg.displayWidth / 2;
-    this.root.setPosition(Math.min(W - half - 6, Math.max(half + 6, x)), Math.max(20, y)).setVisible(true);
-  }
-
-  hide(): void {
-    if (this.root.visible) this.root.setVisible(false);
   }
 }
