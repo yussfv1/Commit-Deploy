@@ -7,6 +7,8 @@
   Презентация Commit & Deploy: 10 слайдов 1920 × 1080, каждый — <section class="slide">.
   Править текст можно прямо здесь. Пересобрать PDF:  node tools/build.mjs   (нужен только Google Chrome)
   Вручную: открыть в Chrome → Печать → «Сохранить как PDF», поля «Нет», фон включён.
+  Показ с анимацией: открыть presentation.html в Chrome, F — во весь экран, → / пробел / клик — дальше, ← — назад.
+  Все слайды подряд без анимации: presentation.html?all
   Шрифты: PT Sans, PT Sans Narrow, PT Mono (свободные). На Mac они есть в системе, на Windows
   подгружаются с Google Fonts. Кадры игры — файлы assets/screens/*.png без изменений, кадрирует только CSS:
   --sx/--sy — левый верхний угол участка в пикселях кадра 2048 × 1152, --sw — его ширина.
@@ -40,7 +42,7 @@ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-kernin
 .slide p, .slide h1 { margin: 0; }
 .slide > :is(p, h1, a, figure, div) { position: absolute; margin: 0; }
 .slide svg.ov { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
-svg.nav { position: absolute; left: 0; top: 996px; }
+svg.nav { position: absolute; left: 0; top: 996px; overflow: visible; }
 
 .h { font: 700 72px/1.08 var(--narrow); color: var(--text); letter-spacing: 0; }
 .dim { color: var(--text2); }
@@ -91,6 +93,34 @@ a { color: inherit; text-decoration: none; }
 #s10 .who b { color: var(--text); font-weight: 700; }
 #s10 .lnk { font: 400 26px/1.3 var(--mono); color: var(--text); white-space: nowrap; }
 #s10 .rule { left: 120px; top: 488px; width: 1680px; height: 1px; background: var(--line); }
+/* Режим показа (экран): один слайд во весь экран, переходы, робот идёт по линии метро к следующей станции.
+   Печать и PDF его не видят — там слайды статичные. Статичный вид в браузере: presentation.html?all */
+@media screen {
+  body.show { background: var(--bg); height: 100vh; overflow: hidden; }
+  body.show.idle { cursor: none; }
+  #stage { position: fixed; left: 50%; top: 50%; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg);
+    transform: translate(-50%, -50%) scale(var(--k, 1)); }
+  body.show .slide { position: absolute; left: 0; top: 0; margin: 0; background: transparent; visibility: hidden; }
+  body.show .slide.on { visibility: visible; }
+  body.show svg.nav { display: none; }
+  #gnav { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  #gnav .gst, #gcur circle { transition: fill .35s, stroke .35s; }
+  body.show .slide.leave { animation: cd-out .36s cubic-bezier(.4, 0, .6, 1) both; }
+  body.show .slide.leave.back { animation-name: cd-out-back; }
+  body.show .slide.enter .a-in { animation: cd-in .64s cubic-bezier(.2, .7, .2, 1) both; animation-delay: var(--d, 0ms); }
+  body.show .slide.enter .a-wipe { animation: cd-wipe .82s cubic-bezier(.3, .6, .15, 1) both; animation-delay: var(--d, 0ms); }
+  body.show .slide.enter .a-draw { stroke-dasharray: var(--len); animation: cd-draw 1.05s cubic-bezier(.5, .05, .25, 1) both; animation-delay: var(--d, 0ms); }
+  body.show .slide.enter .a-pop { transform-box: fill-box; transform-origin: center; animation: cd-pop .5s cubic-bezier(.3, 1.7, .5, 1) both; animation-delay: var(--d, 0ms); }
+  body.show .slide.enter .a-fade { animation: cd-fade .55s ease both; animation-delay: var(--d, 0ms); }
+}
+@media print { .show-only { display: none !important; } }
+@keyframes cd-in { from { opacity: 0; translate: 0 26px; } }
+@keyframes cd-out { to { opacity: 0; translate: -48px 0; } }
+@keyframes cd-out-back { to { opacity: 0; translate: 48px 0; } }
+@keyframes cd-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes cd-draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes cd-pop { from { transform: scale(0); } }
+@keyframes cd-fade { from { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -242,7 +272,7 @@ a { color: inherit; text-decoration: none; }
   <a class="qr" href="https://yussfv1.github.io/Commit-Deploy/?pitch" style="left:120px;top:432px;width:296px;height:296px"><!--QR:pitch--><svg class="qr-svg" viewBox="0 0 41 41" role="img" aria-label="QR: https://yussfv1.github.io/Commit-Deploy/?pitch"><rect width="41" height="41" rx="0.8" fill="#e6edf5"/><path fill="#09111b" d="M4 4h7v1h-7zM13 4h3v1h-3zM17 4h1v1h-1zM20 4h8v1h-8zM30 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM16 5h6v1h-6zM24 5h1v1h-1zM28 5h1v1h-1zM30 5h1v1h-1zM36 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h2v1h-2zM19 6h4v1h-4zM24 6h4v1h-4zM30 6h1v1h-1zM32 6h3v1h-3zM36 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM12 7h2v1h-2zM15 7h1v1h-1zM18 7h1v1h-1zM20 7h1v1h-1zM24 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM30 7h1v1h-1zM32 7h3v1h-3zM36 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h1v1h-1zM15 8h3v1h-3zM19 8h1v1h-1zM22 8h1v1h-1zM25 8h1v1h-1zM27 8h1v1h-1zM30 8h1v1h-1zM32 8h3v1h-3zM36 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h2v1h-2zM16 9h1v1h-1zM18 9h5v1h-5zM24 9h1v1h-1zM26 9h1v1h-1zM28 9h1v1h-1zM30 9h1v1h-1zM36 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h7v1h-7zM12 11h1v1h-1zM14 11h1v1h-1zM16 11h1v1h-1zM18 11h2v1h-2zM22 11h1v1h-1zM25 11h1v1h-1zM4 12h1v1h-1zM6 12h5v1h-5zM14 12h2v1h-2zM17 12h3v1h-3zM21 12h2v1h-2zM24 12h1v1h-1zM28 12h1v1h-1zM30 12h5v1h-5zM4 13h4v1h-4zM16 13h1v1h-1zM20 13h1v1h-1zM22 13h3v1h-3zM26 13h2v1h-2zM30 13h2v1h-2zM33 13h2v1h-2zM4 14h3v1h-3zM10 14h1v1h-1zM12 14h2v1h-2zM15 14h1v1h-1zM19 14h2v1h-2zM22 14h1v1h-1zM25 14h1v1h-1zM30 14h1v1h-1zM32 14h1v1h-1zM34 14h2v1h-2zM4 15h2v1h-2zM8 15h2v1h-2zM12 15h2v1h-2zM18 15h1v1h-1zM20 15h1v1h-1zM25 15h1v1h-1zM27 15h3v1h-3zM32 15h4v1h-4zM5 16h2v1h-2zM8 16h1v1h-1zM10 16h2v1h-2zM14 16h1v1h-1zM16 16h1v1h-1zM22 16h2v1h-2zM25 16h1v1h-1zM32 16h2v1h-2zM35 16h2v1h-2zM5 17h1v1h-1zM7 17h1v1h-1zM13 17h3v1h-3zM17 17h5v1h-5zM24 17h2v1h-2zM27 17h1v1h-1zM30 17h1v1h-1zM33 17h4v1h-4zM5 18h1v1h-1zM8 18h1v1h-1zM10 18h3v1h-3zM14 18h1v1h-1zM16 18h3v1h-3zM21 18h1v1h-1zM23 18h1v1h-1zM25 18h1v1h-1zM29 18h2v1h-2zM32 18h1v1h-1zM34 18h2v1h-2zM4 19h2v1h-2zM9 19h1v1h-1zM11 19h2v1h-2zM20 19h1v1h-1zM22 19h5v1h-5zM28 19h3v1h-3zM32 19h3v1h-3zM4 20h4v1h-4zM9 20h2v1h-2zM12 20h1v1h-1zM15 20h1v1h-1zM21 20h1v1h-1zM23 20h1v1h-1zM27 20h1v1h-1zM29 20h1v1h-1zM31 20h2v1h-2zM36 20h1v1h-1zM5 21h1v1h-1zM7 21h3v1h-3zM11 21h2v1h-2zM15 21h3v1h-3zM20 21h5v1h-5zM27 21h1v1h-1zM29 21h3v1h-3zM33 21h2v1h-2zM36 21h1v1h-1zM4 22h2v1h-2zM9 22h4v1h-4zM16 22h1v1h-1zM19 22h3v1h-3zM26 22h1v1h-1zM29 22h4v1h-4zM34 22h1v1h-1zM7 23h1v1h-1zM11 23h1v1h-1zM13 23h2v1h-2zM17 23h2v1h-2zM21 23h2v1h-2zM24 23h1v1h-1zM27 23h8v1h-8zM5 24h6v1h-6zM16 24h2v1h-2zM19 24h2v1h-2zM24 24h3v1h-3zM28 24h1v1h-1zM31 24h3v1h-3zM35 24h1v1h-1zM4 25h2v1h-2zM7 25h1v1h-1zM11 25h2v1h-2zM14 25h1v1h-1zM19 25h1v1h-1zM21 25h2v1h-2zM27 25h1v1h-1zM29 25h2v1h-2zM33 25h2v1h-2zM36 25h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM10 26h1v1h-1zM12 26h2v1h-2zM15 26h2v1h-2zM19 26h2v1h-2zM22 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM30 26h2v1h-2zM33 26h3v1h-3zM4 27h1v1h-1zM6 27h3v1h-3zM11 27h2v1h-2zM14 27h2v1h-2zM17 27h3v1h-3zM25 27h1v1h-1zM28 27h2v1h-2zM32 27h3v1h-3zM36 27h1v1h-1zM4 28h1v1h-1zM7 28h4v1h-4zM12 28h4v1h-4zM17 28h1v1h-1zM19 28h1v1h-1zM21 28h1v1h-1zM24 28h1v1h-1zM26 28h1v1h-1zM28 28h6v1h-6zM35 28h2v1h-2zM12 29h1v1h-1zM15 29h3v1h-3zM19 29h2v1h-2zM22 29h4v1h-4zM27 29h2v1h-2zM32 29h1v1h-1zM34 29h3v1h-3zM4 30h7v1h-7zM13 30h1v1h-1zM15 30h3v1h-3zM19 30h2v1h-2zM22 30h1v1h-1zM24 30h2v1h-2zM27 30h2v1h-2zM30 30h1v1h-1zM32 30h1v1h-1zM34 30h2v1h-2zM4 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM16 31h2v1h-2zM20 31h1v1h-1zM25 31h4v1h-4zM32 31h4v1h-4zM4 32h1v1h-1zM6 32h3v1h-3zM10 32h1v1h-1zM12 32h1v1h-1zM22 32h2v1h-2zM25 32h1v1h-1zM28 32h6v1h-6zM36 32h1v1h-1zM4 33h1v1h-1zM6 33h3v1h-3zM10 33h1v1h-1zM12 33h4v1h-4zM19 33h3v1h-3zM24 33h6v1h-6zM32 33h1v1h-1zM34 33h1v1h-1zM36 33h1v1h-1zM4 34h1v1h-1zM6 34h3v1h-3zM10 34h1v1h-1zM12 34h7v1h-7zM21 34h1v1h-1zM23 34h1v1h-1zM26 34h6v1h-6zM34 34h1v1h-1zM4 35h1v1h-1zM10 35h1v1h-1zM13 35h6v1h-6zM20 35h1v1h-1zM23 35h5v1h-5zM29 35h2v1h-2zM32 35h3v1h-3zM4 36h7v1h-7zM12 36h1v1h-1zM16 36h3v1h-3zM21 36h3v1h-3zM26 36h6v1h-6zM35 36h1v1h-1z"/></svg><!--/QR:pitch--></a>
   <a class="cap mono" href="https://yussfv1.github.io/Commit-Deploy/?pitch" style="left:120px;top:762px">yussfv1.github.io/Commit-Deploy/?pitch</a>
   <figure class="frame" style="left:830px;top:166px;border-radius:8px 0 0 8px;--w:1090px;--h:757px;--sx:389;--sy:0;--sw:1659"><img src="assets/screens/04-blind.png" alt="Уровень 4 «Слепой робот»"></figure>
-  <p class="note" style="left:830px;top:944px">Уровень 4 «Слепой робот»</p>
+  <p class="note" style="right:120px;top:944px;text-align:right">Уровень 4 «Слепой робот»</p>
 </section>
 
 <!-- 7 · План демо (запасной) · тот же отрезок -->
@@ -306,20 +336,19 @@ a { color: inherit; text-decoration: none; }
 <section class="slide" id="s9">
   <h1 class="h" data-head style="left:120px;top:96px">Честно: что работает и что нет</h1>
   <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
-    <path d="M134 475V635" stroke="#5cc98d" stroke-width="6" stroke-linecap="round"/>
-    <g fill="#5cc98d"><circle cx="134" cy="475" r="11"/><circle cx="134" cy="555" r="11"/><circle cx="134" cy="635" r="11"/></g>
-    <path d="M986 475V715" stroke="#f0574d" stroke-width="6" stroke-linecap="round"/>
-    <g fill="#f0574d"><circle cx="986" cy="475" r="11"/><circle cx="986" cy="555" r="11"/><circle cx="986" cy="635" r="11"/><circle cx="986" cy="715" r="11"/></g>
+    <path d="M134 475V715" stroke="#5cc98d" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#5cc98d"><circle cx="134" cy="475" r="11"/><circle cx="134" cy="555" r="11"/><circle cx="134" cy="635" r="11"/><circle cx="134" cy="715" r="11"/></g>
+    <path d="M986 475V555" stroke="#f0574d" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#f0574d"><circle cx="986" cy="475" r="11"/><circle cx="986" cy="555" r="11"/></g>
   </svg>
   <p class="col" style="left:120px;top:356px">Работает</p>
   <p class="col" style="left:972px;top:356px">Не успели</p>
   <p class="it" style="left:168px;top:452px"><b>6</b> уровней</p>
   <p class="it" style="left:168px;top:532px"><b>10</b> минут стресс-теста без ошибок</p>
   <p class="it" style="left:168px;top:612px"><b>120</b> кадров/с</p>
-  <p class="it" style="left:1020px;top:452px">столкновения роботов</p>
-  <p class="it" style="left:1020px;top:532px">музыку</p>
-  <p class="it" style="left:1020px;top:612px">замер на Windows</p>
-  <p class="it" style="left:1020px;top:692px">замеры плейтеста</p>
+  <p class="it" style="left:168px;top:692px">без интернета, одним файлом</p>
+  <p class="it" style="left:1020px;top:452px">музыку</p>
+  <p class="it" style="left:1020px;top:532px">чёткость на 4К-экранах</p>
 </section>
 
 <!-- 10 · Чему научились и что дальше · 4:45–5:00 · Жалгасхан -->
@@ -347,8 +376,102 @@ a { color: inherit; text-decoration: none; }
 </section>
 
 <script>
-// Линия метро внизу каждого слайда: 10 станций; пройденные — залитые, текущая — оранжевая
-// (белая там, где оранжевый уже занят главным элементом слайда: «&» логотипа, T−3:00, ракета).
+// ── Робот-питомец: синий робот 1 из игры. Карты пикселей — те же, что в src/render/robotSprites.ts
+//    (голова, корпус, руки, ноги, антенна; кадры idle/blink/walk и ракурсы спереди, сзади, сбоку).
+//    Добавлены только поза «салам» (поднятая рука), «ура» (обе руки) и руда над головой, как в игре.
+const PET = (() => {
+  const PAL = { o: '#121826', B: '#3ec1ff', L: '#87d9ff', D: '#2a83ad', v: '#0b1220', w: '#ffffff', E: '#c9fbff',
+    g: '#3fc6ee', n: '#5f6b7d', m: '#aab6c6', a: '#ff5f57', A: '#6e2b2e', c: '#c9fbff', r: '#c9834c', R: '#8f5a2f', h: '#e3a86f' };
+  const HF = ['..oooooooo..', '.oLLLLLLLLo.', 'oLBBBBBBBBBo', 'oBvwvvvvvvBo', 'oBvEEvvEEvBo', 'oBvggvvggvDo', 'oDBBBBBBBBDo', '.oooooooooo.'];
+  const HFB = ['..oooooooo..', '.oLLLLLLLLo.', 'oLBBBBBBBBBo', 'oBvwvvvvvvBo', 'oBvvvvvvvvBo', 'oBvEEvvEEvDo', 'oDBBBBBBBBDo', '.oooooooooo.'];
+  const HB = ['..oooooooo..', '.oLLLLLLLLo.', 'oLBBBBBBBBBo', 'oBBnnnnnnBBo', 'oBBnmmmmnBBo', 'oBBnnnnnnBDo', 'oDBBBBBBBBDo', '.oooooooooo.'];
+  const HS = ['..ooooooo..', '.oLLLLLLLo.', 'oLBBBBBBBBo', 'oBBBBBvvvwo', 'oBBnBBvvEEo', 'oBBnBBvvggo', 'oDBBBBBBBDo', '.ooooooooo.'];
+  const HSB = ['..ooooooo..', '.oLLLLLLLo.', 'oLBBBBBBBBo', 'oBBBBBvvvwo', 'oBBnBBvvvvo', 'oBBnBBvvEEo', 'oDBBBBBBBDo', '.ooooooooo.'];
+  const TF = ['oLBBBBDo', 'oBBccBDo', 'oDDDDDDo'], TB = ['oLBBBBDo', 'oBnmmnDo', 'oDDDDDDo'], TS = ['oLBBDo', 'oBBBDo', 'oDDDDo'];
+  const AL = ['mm', 'mn', 'BB'], AR = ['mm', 'nm', 'BB'], AS = ['mm', 'mn', 'BB'];
+  const LEG = ['mn', 'mn', 'DD'], LEGL = ['mn', 'mn', 'mn', 'DD'], LEGU = ['mn', 'DD'], LF = ['nn', 'nn', 'oo'], LFL = ['nn', 'nn', 'nn', 'oo'];
+  const ORE = ['.hrR.', 'hrrrR', 'rrrRR', '.RRR.'];
+  // Поднятая правая рука (координаты кадра игры 16 × 16): плечо → предплечье → кисть цвета корпуса.
+  const UP1 = [[12, 10, 'm'], [13, 10, 'n'], [13, 9, 'm'], [14, 9, 'n'], [14, 8, 'm'], [15, 8, 'n'], [14, 7, 'm'], [15, 7, 'n'],
+    [14, 6, 'B'], [15, 6, 'B'], [14, 5, 'B'], [15, 5, 'B']];
+  const UP2 = [[12, 10, 'm'], [13, 10, 'n'], [14, 9, 'm'], [15, 9, 'n'], [15, 8, 'm'], [16, 8, 'n'], [16, 7, 'B'], [17, 7, 'B'], [16, 6, 'B'], [17, 6, 'B']];
+  const GW = 20, GH = 22, OX = 2, OY = 6, S = 3;   // холст шире кадра игры: место для руки и руды; пиксель = 3 px слайда
+  const put = (g, part, x, y) => part.forEach((row, dy) => [...row].forEach((ch, dx) => {
+    const gx = x + dx + OX, gy = y + dy + OY;
+    if (ch !== '.' && gx >= 0 && gy >= 0 && gx < GW && gy < GH) g[gy][gx] = ch;
+  }));
+  const dots = (g, list) => list.forEach(([x, y, ch]) => put(g, [ch], x, y));
+  function compose(view, frame, o = {}) {
+    const g = Array.from({ length: GH }, () => Array(GW).fill('.'));
+    const walk = frame.startsWith('walk') ? Number(frame.slice(4)) : -1, passing = walk === 1 || walk === 3;
+    const bodyDy = passing ? -1 : 0, headDy = bodyDy + (frame === 'idle1' ? 1 : 0), blink = frame === 'blink';
+    const ant = [o.lamp === false ? 'AA' : 'aa', 'nn'];
+    if (o.ore) put(g, ORE, 5, -5 + headDy);
+    if (view === 'side') {
+      if (passing) { put(g, LFL, 7, 12); put(g, LEGL, 7, 12); }
+      else if (walk === 0) { put(g, LF, 5, 13); put(g, LEG, 9, 13); }
+      else if (walk === 2) { put(g, LF, 9, 13); put(g, LEG, 5, 13); }
+      else { put(g, LF, 6, 13); put(g, LEG, 8, 13); }
+      put(g, TS, 5, 10 + bodyDy);
+      put(g, AS, walk === 0 ? 5 : walk === 2 ? 9 : 7, 10 + bodyDy);
+      put(g, ant, 6, Math.max(0, headDy));
+      put(g, blink ? HSB : HS, 3, 2 + headDy);
+      return g;
+    }
+    if (passing) { put(g, LEGL, 5, 12); put(g, LEGL, 9, 12); }
+    else { put(g, walk === 2 ? LEGU : LEG, 5, 13); put(g, walk === 0 ? LEGU : LEG, 9, 13); }
+    put(g, view === 'up' ? TB : TF, 4, 10 + bodyDy);
+    if (o.arm) {
+      dots(g, o.arm === 'up2' ? UP2 : UP1);
+      if (o.arm === 'cheer') dots(g, UP1.map(([x, y, ch]) => [15 - x, y, ch === 'm' ? 'n' : ch === 'n' ? 'm' : ch]));
+      else put(g, AL, 2, 10 + bodyDy);
+    } else {
+      put(g, AL, 2, 10 + bodyDy - (walk === 0 ? 1 : 0));
+      put(g, AR, 12, 10 + bodyDy - (walk === 2 ? 1 : 0));
+    }
+    put(g, ant, 7, Math.max(0, headDy));
+    put(g, view === 'up' ? HB : blink ? HFB : HF, 2, 2 + headDy);
+    return g;
+  }
+  // Кадр в SVG: под цветами — сплошной силуэт цвета контура, чтобы при сглаживании между пикселями не было щелей.
+  function svg(g) {
+    const by = {}; let sil = '';
+    for (let y = 0; y < GH; y++) {
+      for (let x = 0; x < GW;) {
+        const ch = g[y][x]; if (ch === '.') { x++; continue; }
+        let e = x; while (e < GW && g[y][e] === ch) e++;
+        (by[ch] ??= []).push(`M${x} ${y}h${e - x}v1h${x - e}z`); x = e;
+      }
+      for (let x = 0; x < GW;) {
+        if (g[y][x] === '.') { x++; continue; }
+        let e = x; while (e < GW && g[y][e] !== '.') e++;
+        sil += `M${x} ${y}h${e - x}v1h${x - e}z`; x = e;
+      }
+    }
+    return `<path fill="#121826" d="${sil}"/>` + Object.entries(by).map(([ch, d]) => `<path fill="${PAL[ch]}" d="${d.join('')}"/>`).join('');
+  }
+  const FR = {};
+  const def = (name, view, frame, o) => { FR[name] = svg(compose(view, frame, o)); };
+  def('idle0', 'down', 'idle0'); def('idle1', 'down', 'idle1'); def('blink', 'down', 'blink');
+  def('lamp0', 'down', 'idle0', { lamp: false });
+  def('wave1', 'down', 'idle0', { arm: 'up1' }); def('wave2', 'down', 'idle0', { arm: 'up2' });
+  def('cheer', 'down', 'idle0', { arm: 'cheer' });
+  def('carry0', 'down', 'idle0', { ore: true }); def('carry1', 'down', 'idle1', { ore: true }); def('carryB', 'down', 'blink', { ore: true });
+  def('back0', 'up', 'idle0'); def('back1', 'up', 'idle1');
+  def('side0', 'side', 'idle0'); def('side1', 'side', 'idle1'); def('sideB', 'side', 'blink');
+  for (let k = 0; k < 4; k++) def(`walk${k}`, 'side', `walk${k}`);
+  // Ноги — на верхнем краю кольца станции (y 1013 на слайде), центр кадра — над станцией.
+  const place = (name, x, yBottom, dy = 0, flip = false) => {
+    const X = x - (8 + OX) * S, Y = yBottom - GH * S + dy;
+    return `<g transform="translate(${(flip ? X + GW * S : X).toFixed(1)} ${Y}) scale(${flip ? -S : S} ${S})">${FR[name]}</g>`;
+  };
+  return { FR, place };
+})();
+
+// ── Линия метро внизу каждого слайда: 10 станций; пройденные — залитые, текущая — оранжевая
+//    (белая там, где оранжевый уже занят главным элементом слайда: «&» логотипа, T−3:00, ракета).
+//    На текущей станции стоит робот — в PDF в своей позе для каждого слайда.
+const PET_POSE = ['wave1', 'idle0', 'walk1', 'carry0', 'idle0', 'side0', 'walk0', 'back0', 'cheer', 'wave2'];
 document.querySelectorAll('.slide').forEach((s, cur) => {
   const n = 10, x0 = 120, x1 = 1800, y = 30, step = (x1 - x0) / (n - 1), xc = x0 + step * cur;
   const white = s.dataset.nav === 'white', col = white ? '#e6edf5' : '#ff7a2f';
@@ -361,9 +484,11 @@ document.querySelectorAll('.slide').forEach((s, cur) => {
   }
   g += `<g ${white ? '' : 'data-accent="nav"'}><circle cx="${xc}" cy="${y}" r="13" fill="none" stroke="${col}" stroke-width="2"/>` +
        `<circle cx="${xc}" cy="${y}" r="7" fill="${col}"/></g>`;
+  g += `<g class="pet">${PET.place(PET_POSE[cur] ?? 'idle0', xc, y - 17)}</g>`;
   s.insertAdjacentHTML('beforeend', `<svg class="nav" width="1920" height="60" viewBox="0 0 1920 60" aria-hidden="true">${g}</svg>`);
 });
-// Неразрывные пробелы: после коротких слов, между числом и единицей, перед тире.
+
+// ── Неразрывные пробелы: после коротких слов, между числом и единицей, перед тире.
 (() => {
   const SHORT = 'в|во|на|с|со|к|ко|у|о|об|от|до|по|за|из|без|для|при|про|над|под|и|а|но|не|ни|что|как|или|ты|он|мы|их|это|из-за';
   const re = new RegExp(`(^|[\\s\\u00a0«„(])(${SHORT}) `, 'giu');
@@ -374,6 +499,129 @@ document.querySelectorAll('.slide').forEach((s, cur) => {
     const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) if (!n.parentElement.closest('.need, a.mono')) n.nodeValue = fix(n.nodeValue);
   });
+})();
+
+// ── Режим показа: открыть presentation.html в Chrome, F — во весь экран, → / пробел / клик — дальше, ← — назад.
+//    Каждый слайд собирается заново: линии метро прорисовываются, станции появляются по ходу линии, текст
+//    поднимается, кадры игры открываются шторкой, а робот идёт по нижней линии к следующей станции.
+(() => {
+  if (new URLSearchParams(location.search).has('all') || matchMedia('print').matches) return;
+  const slides = [...document.querySelectorAll('.slide')];
+  const n = slides.length, Y = 1026, X = (k) => 120 + (1680 / (n - 1)) * k;
+  const stage = document.createElement('div'); stage.id = 'stage';
+  slides[0].before(stage); stage.append(...slides);
+  document.body.classList.add('show');
+  stage.insertAdjacentHTML('beforeend', `<svg id="gnav" class="show-only" width="1920" height="1080" viewBox="0 0 1920 1080" aria-hidden="true">
+    <path d="M120 ${Y}H1800" stroke="#1f3048" stroke-width="2"/><path id="gpass" d="M120 ${Y}H120" stroke="#5c6e86" stroke-width="2"/>
+    ${slides.map((_, k) => `<circle class="gst" cx="${X(k)}" cy="${Y}" r="6" stroke-width="2" fill="#09111b" stroke="#5c6e86"/>`).join('')}
+    <g id="gcur" transform="translate(-60 ${Y})"><circle r="13" fill="none" stroke-width="2"/><circle r="7"/></g><g id="gpet"></g></svg>`);
+  const fit = () => stage.style.setProperty('--k', Math.min(innerWidth / 1920, innerHeight / 1080));
+  fit(); addEventListener('resize', fit);
+  const gpass = document.getElementById('gpass'), gcur = document.getElementById('gcur'), gpet = document.getElementById('gpet');
+  const gst = [...document.querySelectorAll('#gnav .gst')];
+  document.querySelectorAll('.slide a[href]').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
+
+  // Подготовка анимаций входа для каждого слайда.
+  const attr = (el, name) => el.getAttribute(name) ?? el.parentElement?.closest(`[${name}]`)?.getAttribute(name) ?? null;
+  slides.forEach((s) => {
+    let i = 0, d = 0;
+    for (const el of s.children) {
+      if (el.matches('svg.nav, svg.ov, svg.logo')) continue;
+      el.style.setProperty('--d', `${80 + i++ * 70}ms`);
+      el.classList.add(el.matches('figure.frame') ? 'a-wipe' : 'a-in');
+    }
+    s.querySelectorAll('svg.ov *, svg.logo *').forEach((el) => {
+      if (el.closest('defs, clipPath')) return;
+      const rocket = el.closest('[data-accent="rocket"]');
+      if (rocket) { if (rocket === el) { el.classList.add('a-fade'); el.style.setProperty('--d', '950ms'); } return; }
+      if (el.matches('circle')) {
+        const cx = +el.getAttribute('cx'), cy = +el.getAttribute('cy');
+        el.classList.add('a-pop');
+        el.style.setProperty('--d', `${Math.round(260 + (cx / 1920) * 780 + (Math.max(0, cy - 380) / 500) * 380)}ms`);
+      } else if (el.matches('path, line')) {
+        const st = attr(el, 'stroke'), sw = parseFloat(attr(el, 'stroke-width') ?? '1');
+        if (st && st !== 'none' && sw >= 4 && !attr(el, 'stroke-dasharray') && st.toLowerCase() !== '#09111b') {
+          el.style.setProperty('--len', (el.getTotalLength() + 2).toFixed(1));
+          el.style.setProperty('--d', `${180 + d++ * 70}ms`); el.classList.add('a-draw');
+        } else { el.classList.add('a-fade'); el.style.setProperty('--d', '900ms'); }
+      } else if (el.matches('rect, polygon')) { el.classList.add('a-fade'); el.style.setProperty('--d', '700ms'); }
+    });
+  });
+
+  // Робот и бегунок линии.
+  let cur = -1, petX = -40, raf = 0, actT = 0, outT = 0;
+  const setPet = (name, x, dy = 0, flip = false) => { gpet.innerHTML = PET.place(name, x, 1013, dy, flip); };
+  const marker = (x) => {
+    gcur.setAttribute('transform', `translate(${x.toFixed(1)} ${Y})`);
+    gpass.setAttribute('d', `M120 ${Y}H${Math.max(120, x).toFixed(1)}`);
+    gst.forEach((c, k) => { const passed = X(k) < x - 1; c.setAttribute('fill', passed ? '#5c6e86' : '#09111b'); c.setAttribute('stroke', passed ? 'none' : '#5c6e86'); });
+  };
+  const paint = (white) => { const col = white ? '#e6edf5' : '#ff7a2f'; gcur.children[0].setAttribute('stroke', col); gcur.children[1].setAttribute('fill', col); };
+  const walks = (from, to, flip) => [...Array(8)].map((_, i) => [`walk${i % 4}`, 110, from + ((to - from) * (i + 1)) / 8, 0, flip]);
+  const ACT = {
+    wave: [['wave1', 180], ['wave2', 180], ['wave1', 180], ['wave2', 180], ['wave1', 180], ['wave2', 180], ['wave1', 260],
+      ['idle0', 900], ['blink', 120], ['idle0', 800], ['idle1', 500], ['idle0', 500]],
+    lamp: [['idle0', 450], ['lamp0', 450], ['idle1', 450], ['lamp0', 450], ['idle0', 450], ['lamp0', 450], ['blink', 120], ['lamp0', 450]],
+    loop: [...walks(0, 34, false), ['idle0', 320, 34], ...walks(34, 0, true), ['idle0', 420], ['blink', 120], ['idle0', 300]],
+    carry: [['carry0', 520], ['carry1', 520], ['carry0', 520], ['carry1', 520], ['carryB', 120], ['carry0', 520]],
+    sensor: [['lamp0', 420], ['idle0', 420], ['lamp0', 420], ['idle0', 420], ['lamp0', 420], ['idle0', 260],
+      ['cheer', 150, 0, -6], ['cheer', 150, 0, -10], ['cheer', 150, 0, -6], ['idle0', 700]],
+    look: [['side0', 620], ['side1', 620], ['sideB', 120], ['side0', 820], ['side1', 620]],
+    walk: [['walk0', 130], ['walk1', 130], ['walk2', 130], ['walk3', 130]],
+    back: [['back0', 720], ['back1', 720], ['back0', 720], ['back1', 720], ['idle0', 520], ['blink', 120], ['idle0', 420]],
+    cheer: [['cheer', 150, 0, -4], ['cheer', 150, 0, -10], ['cheer', 150, 0, -4], ['idle0', 130], ['cheer', 150, 0, -4],
+      ['cheer', 150, 0, -10], ['cheer', 150, 0, -4], ['idle0', 900], ['blink', 120], ['idle0', 700]],
+  };
+  const SLIDE_ACT = ['wave', 'lamp', 'loop', 'carry', 'sensor', 'look', 'walk', 'back', 'cheer', 'wave'];
+  const startAct = (k) => {
+    const seq = ACT[SLIDE_ACT[k] ?? 'lamp']; let i = 0;
+    const tick = () => { const [f, ms, dx = 0, dy = 0, flip = false] = seq[i++ % seq.length]; setPet(f, X(k) + dx, dy, flip); actT = setTimeout(tick, ms); };
+    tick();
+  };
+  const walkTo = (k, done) => {
+    cancelAnimationFrame(raf); clearTimeout(actT);
+    const x0 = petX, x1 = X(k), dist = Math.abs(x1 - x0);
+    if (dist < 1) { petX = x1; marker(x1); done(); return; }
+    const dur = Math.min(1700, Math.max(560, dist * 4.3)), t0 = performance.now(), flip = x1 < x0;
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / dur), e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      petX = x0 + (x1 - x0) * e;
+      setPet(`walk${Math.floor(Math.abs(petX - x0) / 11) % 4}`, petX, 0, flip);
+      marker(petX);
+      if (t < 1) raf = requestAnimationFrame(step); else done();
+    };
+    raf = requestAnimationFrame(step);
+  };
+  const go = (k) => {
+    k = Math.max(0, Math.min(n - 1, k)); if (k === cur) return;
+    const prev = cur; cur = k;
+    history.replaceState(null, '', `#${k + 1}`);
+    clearTimeout(outT);
+    slides.forEach((s, j) => { if (j !== k && j !== prev) s.classList.remove('on', 'enter', 'leave', 'back'); });
+    if (prev >= 0) {
+      const o = slides[prev];
+      o.classList.remove('enter'); o.classList.toggle('back', k < prev); o.classList.add('leave');
+      outT = setTimeout(() => { if (slides[cur] !== o) o.classList.remove('on', 'leave', 'back'); }, 380);
+    }
+    const s = slides[k];
+    s.classList.remove('leave', 'back', 'enter'); void s.offsetWidth; s.classList.add('on', 'enter');
+    paint(s.dataset.nav === 'white');
+    walkTo(k, () => startAct(k));
+  };
+  addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); go(cur + 1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(n - 1);
+    else if (e.code === 'KeyF') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); }
+  });
+  addEventListener('click', (e) => { if (!e.target.closest('a')) go(cur + (e.clientX < innerWidth * 0.3 ? -1 : 1)); });
+  let idleT = 0;
+  addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 1800); });
+  addEventListener('hashchange', () => { const k = parseInt(location.hash.slice(1), 10) - 1; if (!Number.isNaN(k)) go(k); });
+  window.__deck = { go, get cur() { return cur; } };
+  go(Math.max(0, Math.min(n - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1)));
 })();
 </script>
 </body>
