@@ -7,7 +7,8 @@
 
 **Коротко.** Из чужого в игру (папку `dist/`, которую мы публикуем) попадает только движок Phaser 3.90.0 (MIT) вместе
 с кодом, который Phaser вшивает в себя сам. Графику рисует код, логотип и ракета — наши PNG из наших SVG. Звук
-синтезирует код, музыки нет. Файлов шрифтов нет: игра называет шрифты по имени, и браузер берёт системные.
+синтезирует код, музыки нет. Шрифт — PT Sans (SIL OFL 1.1): два файла без изменений лежат в сборке, системные шрифты
+остались запасными.
 ИИ-инструмент — Claude (Anthropic).
 
 ## Что попадает в сборку
@@ -20,12 +21,15 @@
 | `dist/assets/index-<хеш>.js` | Весь код одним файлом: наш `src/` и Phaser 3.90.0 вместе с тем, что он вшил в себя (ниже) | Собирает Vite |
 | `dist/assets/icons/logo.png` и `dist/assets/logo-<хеш>.png` | Логотип | Копии `public/assets/icons/logo.png` |
 | `dist/assets/icons/rocket.png` и `dist/assets/rocket-<хеш>.png` | Ракета | Копии `public/assets/icons/rocket.png` |
+| `dist/assets/fonts/main.ttf` и `dist/assets/main-<хеш>.ttf` | Шрифт PT Sans Regular (ParaType, SIL OFL 1.1) | Копии `public/assets/fonts/main.ttf` |
+| `dist/assets/fonts/main-bold.ttf` и `dist/assets/main-bold-<хеш>.ttf` | Шрифт PT Sans Bold (ParaType, SIL OFL 1.1) | Копии `public/assets/fonts/main-bold.ttf` |
+| `dist/assets/fonts/ofl-ptsans.txt` | Текст лицензии SIL OFL 1.1 для PT Sans | Копия `public/assets/fonts/ofl-ptsans.txt` |
 
-Копию с хешем в имени Vite кладёт, когда код подключает картинку через `import.meta.glob`. Байты у всех копий одинаковые.
+Копию с хешем в имени Vite кладёт, когда код подключает картинку или шрифт через `import.meta.glob`. Байты у всех копий одинаковые.
 
 Резервная сборка `build/web/index.html` (собирает `node scripts/make-offline.mjs`) — та же игра одним файлом для запуска
-без интернета: код из `dist/assets/index-<хеш>.js` и обе PNG встроены в страницу как `data:`-адреса. Чужого в ней
-ровно столько же, сколько в `dist/`: Phaser 3.90.0 и то, что он вшил в себя.
+без интернета: код из `dist/assets/index-<хеш>.js`, обе PNG и оба файла PT Sans встроены в страницу как `data:`-адреса
+(2,5 МБ). Чужого в ней ровно столько же, сколько в `dist/`: Phaser 3.90.0 с тем, что он вшил в себя, и шрифт PT Sans.
 
 ## Библиотеки и инструменты
 
@@ -121,17 +125,26 @@ MPL-2.0 касаются распространения файлов самой 
 
 ### Шрифты
 
-Файлов шрифтов нет ни в репозитории, ни в сборке, и мы шрифты не распространяем. Игра только называет шрифты по имени,
-а браузер берёт первый из списка, который установлен у игрока. Списки — `FONT` и `MONO` в `src/ui/theme.ts`. Текст
-«нужен JavaScript» в `index.html` использует короткий список: Bahnschrift, PT Sans, Segoe UI, Arial, `sans-serif`.
-
-Первое имя в `FONT` — `TMinus`. Это место под файл шрифта `public/assets/fonts/main.woff2`, которого нет, поэтому
-`TMinus` не загружается. Если файл появится, он должен быть под OFL или CC0 и получить здесь строку.
+Весь текст игры — шрифтом PT Sans (ParaType), два файла лежат в сборке без изменений. Это тот же шрифт, что в
+презентации (`docs/presentation/`). Зачем свой файл: на холсте браузер рисует буквы без ClearType, и системный шрифт
+выглядел мыльным. Шрифт грузится с того же адреса, что и игра (`src/render/assets.ts`, `FontFace`), запросов к Google
+Fonts и другим сайтам нет. `TMinus` — только внутреннее имя шрифта в коде, сам файл не переименован и не изменён.
 
 | Шрифт | Версия / откуда | Лицензия | Ссылка | Где используется | Входит в сборку |
 |---|---|---|---|---|---|
-| Bahnschrift (Microsoft) | Из Windows 10 и 11 | Проприетарная, Microsoft; входит в Windows | https://learn.microsoft.com/en-us/typography/font-list/bahnschrift | Основной шрифт всего текста на Windows (компьютер жюри) | нет |
-| PT Sans (ParaType) | Из macOS | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/ptsans | Основной шрифт на macOS | нет |
+| PT Sans Regular (ParaType) | `PT_Sans-Web-Regular.ttf` из репозитория Google Fonts на GitHub, скачан 12.11; SHA-256 `9CC831490532009BAE2B3CE0D39C62ADFC889060BEB421593BFD9D2396D0F10A` | SIL OFL 1.1, Reserved Font Names «PT Sans», «ParaType»; файл не изменён; текст лицензии: `public/assets/fonts/ofl-ptsans.txt` | https://github.com/google/fonts/tree/main/ofl/ptsans | Весь обычный текст игры (`FONT` и `MONO` → `TMinus`, толщина 400) | да, `public/assets/fonts/main.ttf` |
+| PT Sans Bold (ParaType) | `PT_Sans-Web-Bold.ttf` оттуда же, скачан 12.11; SHA-256 `3128BD5ECF01816E59A23D54C57A7A6B14615B07DB53FF277C77376010265B05` | SIL OFL 1.1, как выше | https://github.com/google/fonts/tree/main/ofl/ptsans | Жирный текст (толщина 700) | да, `public/assets/fonts/main-bold.ttf` |
+
+Если файлы не загрузились (ждём не дольше полутора секунд), игра идёт на запасных системных шрифтах. Их мы не
+распространяем: браузер берёт первый из списка `FONT` и `MONO` в `src/ui/theme.ts`, который установлен у игрока.
+Текст «нужен JavaScript» в `index.html` использует короткий список: Bahnschrift, PT Sans, Segoe UI, Arial, `sans-serif`.
+
+Запасные системные шрифты:
+
+| Шрифт | Версия / откуда | Лицензия | Ссылка | Где используется | Входит в сборку |
+|---|---|---|---|---|---|
+| Bahnschrift (Microsoft) | Из Windows 10 и 11 | Проприетарная, Microsoft; входит в Windows | https://learn.microsoft.com/en-us/typography/font-list/bahnschrift | Запасной на Windows (компьютер жюри) | нет |
+| PT Sans (ParaType) | Из macOS | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/ptsans | Запасной на macOS | нет |
 | Segoe UI (Microsoft) | Из Windows 10 и 11 | Проприетарная, Microsoft; входит в Windows | https://learn.microsoft.com/en-us/typography/font-list/segoe-ui | Запасной | нет |
 | Roboto (The Roboto Project Authors) | Если установлен у игрока | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/roboto | Запасной | нет |
 | Helvetica Neue (Linotype) | Из macOS | Проприетарная, Linotype; входит в macOS | https://support.apple.com/en-us/120414 | Запасной | нет |
@@ -143,13 +156,24 @@ MPL-2.0 касаются распространения файлов самой 
 | DejaVu Sans Mono | Если установлен у игрока | Лицензия Bitstream Vera, изменения DejaVu — public domain | https://dejavu-fonts.github.io/License.html | Запасной моноширинный | нет |
 | `sans-serif`, `monospace` | — | — | — | Последний запасной: шрифт браузера по умолчанию | нет |
 
+### Презентация
+
+`docs/presentation.pdf` собран из нашего `docs/presentation/presentation.html`; кадры игры в `docs/presentation/assets/screens/`
+сняты с холста нашей игры. Чужих картинок в презентации нет.
+
+| Что | Откуда | Лицензия | Ссылка | Где |
+|---|---|---|---|---|
+| PT Sans, PT Sans Narrow, PT Mono (ParaType) | Системные или Google Fonts (флаг `--web-fonts` в `tools/build.mjs`) | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl | Текст слайдов, встроены в PDF |
+| Google Chrome | Установленный браузер | Проприетарная, Google | https://www.google.com/chrome/ | Печать PDF (`tools/build.mjs`), в репозиторий не входит |
+| Core Image (Apple) | Из macOS | Проприетарная, Apple; входит в macOS | https://developer.apple.com/documentation/coreimage | QR-коды на слайдах 6 и 10 (`tools/qr_gen.swift`) |
+
 ## Что не используется
 
 | Чего нет | Как проверено (номера команд — в конце файла) |
 |---|---|
-| Чужих картинок, спрайтов, тайлов и иконок | В репозитории 4 картинки: `logo.png`, `rocket.png` и их SVG-исходники (команда 3). В `dist/` из картинок только копии `logo.png` и `rocket.png` (команда 2) |
+| Чужих картинок, спрайтов, тайлов и иконок | Картинки самой игры: `logo.png`, `rocket.png` и их SVG-исходники (команда 3; остальные картинки репозитория — скриншоты и графика презентации в `docs/presentation/`, в игру они не попадают). В `dist/` из картинок только копии `logo.png` и `rocket.png` (команда 2) |
 | Звуковых файлов и музыки | В `public/` и `dist/` нет `.mp3`, `.wav`, `.ogg`, `.m4a` (команды 2 и 3) |
-| Файлов шрифтов | Нет `.woff`, `.woff2`, `.ttf`, `.otf` (команды 2 и 3); шрифты указаны только именами (команда 4) |
+| Других файлов шрифтов | Кроме двух файлов PT Sans (`main.ttf`, `main-bold.ttf`) нет `.woff`, `.woff2`, `.ttf`, `.otf` (команды 2 и 3); запасные шрифты указаны только именами (команда 4) |
 | Чужого кода, кроме Phaser | Карта исходников сборки: из `node_modules` в игру попадает один файл — `phaser/dist/phaser.js`, остальное — наши файлы из `src/` и `public/` (команда 7) |
 | Внешних запросов, CDN, API, рекламы и аналитики | Адреса в коде и сборке (команда 5), других нет: пространства имён `www.w3.org` (SVG, XHTML); `phaser.io` внутри Phaser — это текст баннера в консоли браузера и значение по умолчанию поля `gameURL`, по нему ничего не загружается; в комментариях к коду может встречаться адрес нашей же игры `yussfv1.github.io/Commit-Deploy`. В сеть ходит только `src/render/assets.ts`, и только за своими файлами `assets/` рядом с игрой |
 | Сбора персональных данных | `src/ui/storage.ts`: в `localStorage` браузера лежат только громкость, язык, тема оформления (тёмная или светлая) и рекорды уровней (числа). На сервер ничего не уходит |
@@ -161,7 +185,7 @@ MPL-2.0 касаются распространения файлов самой 
 |---|---|---|
 | Спрайты, тайлы, анимации | Свои или CC0/CC-BY; автор и лицензия | «Графика»: всё своё, автор указан |
 | Музыка и звук | Свои или CC0/CC-BY; автор и лицензия | «Звук и музыка»: звук свой, синтез кодом; музыки нет |
-| Шрифты | OFL/CC0; лицензия | «Шрифты»: файлов шрифтов в игре нет, только системные по имени — у каждого владелец и лицензия |
+| Шрифты | OFL/CC0; лицензия | «Шрифты»: PT Sans, SIL OFL 1.1, текст лицензии лежит рядом с файлами; запасные системные шрифты не распространяем |
 | Библиотеки | Open source; версия и лицензия | «В сборке игры», «Инструменты разработки», «Инфраструктура и CI» |
 | AI-ассеты | Инструмент и ответственность | «AI-инструменты»; логотип, ракета, звук и иконка вкладки — в разделах «Графика» и «Звук и музыка» |
 | Движок | Название и версия | Phaser 3.90.0, MIT — «В сборке игры» |
@@ -183,18 +207,3 @@ npx vite build --sourcemap --outDir /tmp/tm-map --emptyOutDir             # 7. �
 node -e "const d='/tmp/tm-map/assets/',fs=require('fs');const m=JSON.parse(fs.readFileSync(d+fs.readdirSync(d).find(f=>f.endsWith('.map'))));console.log(m.sources.filter(s=>s.includes('node_modules')))"   # ...и чужие файлы в ней
 git log --format=%B | grep -i co-authored | sort | uniq -c                # 8. подписи ИИ в коммитах
 ```
-
-## Обновление 12.11: свой шрифт PT Sans
-
-С этой правки в сборке **есть** файлы шрифта, и раздел «Шрифты» выше устарел в двух местах: `TMinus` теперь
-загружается из `public/assets/fonts/main.ttf` и `main-bold.ttf`, а Bahnschrift и остальные системные шрифты стали
-запасными (если файлы не загрузились). Зачем: на холсте браузер рисует буквы без ClearType, и системный шрифт выглядел
-мыльным. PT Sans — тот же шрифт, что в презентации (`docs/presentation/`): прямые штрихи, чёткий на экране.
-
-| Шрифт | Версия / откуда | Лицензия | Ссылка | Где используется | Входит в сборку |
-|---|---|---|---|---|---|
-| PT Sans Regular (ParaType) | `PT_Sans-Web-Regular.ttf` из репозитория Google Fonts на GitHub, скачан 12.11; SHA-256 `9CC831490532009BAE2B3CE0D39C62ADFC889060BEB421593BFD9D2396D0F10A` | SIL OFL 1.1, Reserved Font Names «PT Sans», «ParaType»; файл не изменён; текст лицензии: `public/assets/fonts/ofl-ptsans.txt` | https://github.com/google/fonts/tree/main/ofl/ptsans | Весь обычный текст игры (`FONT` и `MONO` → `TMinus`, толщина 400) | да, `public/assets/fonts/main.ttf` |
-| PT Sans Bold (ParaType) | `PT_Sans-Web-Bold.ttf` оттуда же, скачан 12.11; SHA-256 `3128BD5ECF01816E59A23D54C57A7A6B14615B07DB53FF277C77376010265B05` | SIL OFL 1.1, как выше | https://github.com/google/fonts/tree/main/ofl/ptsans | Жирный текст (толщина 700) | да, `public/assets/fonts/main-bold.ttf` |
-
-Шрифт лежит в сборке и грузится с того же адреса, что и игра: сетевых запросов к Google Fonts нет.
-Имя `TMinus` — только внутреннее имя в коде игры (`FontFace`), сам файл шрифта не переименован и не изменён.
