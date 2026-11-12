@@ -183,3 +183,17 @@ npx vite build --sourcemap --outDir /tmp/tm-map --emptyOutDir             # 7. �
 node -e "const d='/tmp/tm-map/assets/',fs=require('fs');const m=JSON.parse(fs.readFileSync(d+fs.readdirSync(d).find(f=>f.endsWith('.map'))));console.log(m.sources.filter(s=>s.includes('node_modules')))"   # ...и чужие файлы в ней
 git log --format=%B | grep -i co-authored | sort | uniq -c                # 8. подписи ИИ в коммитах
 ```
+
+## Обновление 12.11: свой шрифт Nunito
+
+С этой правки в сборке **есть** файл шрифта, и раздел «Шрифты» выше устарел в двух местах: `TMinus` теперь загружается
+из `public/assets/fonts/main.ttf`, а Bahnschrift и остальные системные шрифты стали запасными (если файл не загрузился).
+Зачем: на холсте браузер рисует буквы без ClearType, и тонкий системный шрифт выглядел мыльным. Nunito со скруглёнными
+концами подходит к линиям логотипа Commit & Deploy, а плотная толщина 600 читается чётко.
+
+| Шрифт | Версия / откуда | Лицензия | Ссылка | Где используется | Входит в сборку |
+|---|---|---|---|---|---|
+| Nunito (The Nunito Project Authors) | Переменный TTF `Nunito[wght].ttf`, толщины 200…1000, из репозитория Google Fonts на GitHub, скачан 12.11; SHA-256 `BB55A5CA5C2042335B3991AF27C4D0705D0EF41CAC6164AC737FD8F2A1E85207` | SIL OFL 1.1, текст лицензии рядом: `public/assets/fonts/ofl-nunito.txt` | https://github.com/google/fonts/tree/main/ofl/nunito | Весь текст игры (`FONT` → `TMinus`), кроме моноширинного кода | да, `public/assets/fonts/main.ttf` |
+
+Шрифт лежит в сборке и грузится с того же адреса, что и игра: сетевых запросов к Google Fonts нет.
+В нём есть вся кириллица и казахские буквы ә ғ қ ң ө ұ ү һ і. Стрелку «→» браузер берёт из запасного шрифта.
