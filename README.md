@@ -5,7 +5,9 @@
 
 **▶ Играть:** https://commit-deploy.vercel.app/ — в Chrome или Firefox, ничего устанавливать не нужно.<br>
 **Запасной адрес:** https://yussfv1.github.io/Commit-Deploy/ — та же игра из `main` на GitHub Pages.<br>
-**Без интернета:** [`build/web/index.html`](build/web/index.html) — вся игра в одном файле (2,5 МБ), открывается двойным щелчком.
+**Без интернета:** [`build/web/index.html`](build/web/index.html) — вся игра в одном файле (2,5 МБ), открывается двойным щелчком.<br>
+**Видео-демо:** [`docs/video.mp4`](docs/video.mp4) — 2:57, реальный геймплей уровней 1–6 с субтитрами.<br>
+**Презентация:** [`docs/presentation.pdf`](docs/presentation.pdf) — 10 слайдов.
 
 ## 1. Название и команда
 
@@ -18,7 +20,7 @@
 | Капитан | Ерсултан (GitHub `smqlr`) |
 | Контакт | Telegram капитана [@smq1r](https://t.me/smq1r) |
 | Репозиторий | ведёт Асмир (GitHub `yussfv1`), вопросы по коду — в [Issues](https://github.com/yussfv1/Commit-Deploy/issues) |
-| Презентация и видео-демо | презентация — [`docs/presentation.pdf`](docs/presentation.pdf), исходник — [`docs/presentation/`](docs/presentation/); ссылка на видео-демо появится здесь и в форме хакатона |
+| Презентация и видео-демо | презентация — [`docs/presentation.pdf`](docs/presentation.pdf), исходник — [`docs/presentation/`](docs/presentation/); видео-демо — [`docs/video.mp4`](docs/video.mp4): 2:57, запись экрана игры, субтитры на русском, без звука |
 
 | Участник | Роль | Зона ответственности | Имя в истории коммитов |
 |---|---|---|---|
