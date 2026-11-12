@@ -4,7 +4,7 @@ import { ensureTexture, roundRect } from '../render/canvas';
 import { getRenderScale } from '../render/display';
 import { H, W } from '../render/layout';
 import { audio } from './audio';
-import { COLOR, FONT, MONO, RADIUS, SIZE, css, darken, rgba } from './theme';
+import { COLOR, FONT, MONO, RADIUS, SIZE, WEIGHT, css, darken, rgba } from './theme';
 
 /** Чёткость текста равна масштабу отрисовки: буквы рисуются пиксель в пиксель и не мылятся. */
 export const textRes = (): number => Math.min(2, Math.max(1, getRenderScale()));
@@ -28,7 +28,7 @@ export function txt(scene: Phaser.Scene, x: number, y: number, str: string, o: T
   const style: Phaser.Types.GameObjects.Text.TextStyle = {
     fontFamily: o.mono ? MONO : FONT,
     fontSize: `${size}px`,
-    fontStyle: o.bold ? 'bold' : 'normal',
+    fontStyle: o.bold ? WEIGHT.bold : WEIGHT.normal,
     color: css(o.color ?? COLOR.text),
     align: o.align ?? 'left',
     resolution: textRes(),
@@ -265,7 +265,7 @@ export class Button {
   setKind(kind: ButtonKind): this {
     if (kind !== this.kind) {
       this.kind = kind;
-      this.label.setFontStyle(kind === 'primary' ? 'bold' : 'normal');
+      this.label.setFontStyle(kind === 'primary' ? WEIGHT.bold : WEIGHT.normal);
       this.refresh();
     }
     return this;
