@@ -96,6 +96,8 @@ export class GameScene extends Phaser.Scene {
   private ghostCell: { x: number; y: number } | null = null;
   private tint!: Phaser.GameObjects.Rectangle;
   private banner!: Phaser.GameObjects.Container;
+  /** Ширина плашки режима обучения в полосе над картой: легенда ужимается, чтобы не залезть под неё. */
+  private bannerW = 0;
   private tutorial!: TutorialFlow;
   private tutCard!: Phaser.GameObjects.Container;
   private tutText!: Phaser.GameObjects.Text;
@@ -179,12 +181,13 @@ export class GameScene extends Phaser.Scene {
       solo: (id) => {
         this.solo = id;
       },
-    });
+    }, (id) => this.numbers.of(id));
 
     // Режим обучения: голубой фильтр на поле и плашка о том, что настоящий мир стоит (справа в полосе над картой).
     this.tint = this.add.rectangle(FIELD.x, FIELD.y, FIELD.w, FIELD.h, COLOR.teach, 0.07).setOrigin(0, 0).setDepth(DEPTH.tint).setVisible(false);
     const bannerText = txt(this, 0, 0, t('teach.banner'), { size: SIZE.micro, bold: true, color: COLOR.ink, caps: true, ox: 0.5, oy: 0.5 });
     const bannerW = Math.ceil(bannerText.width + 32);
+    this.bannerW = bannerW;
     const bannerBg = plate(this, 0, 0, bannerW, 28, { fill: COLOR.teach, radius: 3 });
     this.banner = this.add
       .container(STRIP.x + STRIP.w - bannerW / 2, STRIP.y + STRIP.h / 2, [bannerBg, bannerText])
@@ -214,7 +217,8 @@ export class GameScene extends Phaser.Scene {
       sell: () => this.sellSelected(),
     }, (id) => this.numbers.of(id));
     this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
-    this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, FIELD.y + 64, DEPTH.toast);
+    // Сообщения — под полосой легенды и строкой FPS, по центру карты.
+    this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, STRIP.y + STRIP.h + 52, DEPTH.toast);
     this.telemetry = null;
     this.realSnap = null;
 
@@ -231,7 +235,8 @@ export class GameScene extends Phaser.Scene {
     this.tutArrow = this.add.image(0, 0, 'tut_arrow').setDisplaySize(30, 36).setDepth(DEPTH.uiTop).setVisible(false);
     this.tutFrame = this.add.graphics().setDepth(DEPTH.uiTop).setVisible(false);
 
-    this.fps = txt(this, FIELD.x + 12, FIELD.y + 10, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
+    // Счётчик FPS (F, ?stress) — под полосой легенды слева, чтобы не закрывать её кнопки.
+    this.fps = txt(this, STRIP.x, STRIP.y + STRIP.h + 6, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointerDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
@@ -291,7 +296,7 @@ export class GameScene extends Phaser.Scene {
     const solo = s.mode === 'teach' ? null : this.solo;
     this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
     this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined, solo });
-    this.strip.update(s, this.solo);
+    this.strip.update(s, this.solo, s.mode === 'teach' ? this.bannerW : 0);
     this.telemetry?.update(s, selectedRobot);
     const teaching = s.mode === 'teach';
     if (!teaching) this.realSnap = s;

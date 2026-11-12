@@ -2,6 +2,7 @@
 // Нажатие на строку легенды подсвечивает такие машины на карте. Машины, которые на этом уровне
 // встречаются впервые, отмечены оранжевой точкой. Справа — выбор петель: все сразу или только одного
 // робота (остальные петли прячутся). В режиме обучения справа вместо него — плашка «мир на паузе».
+// Когда роботов много, полоса ужимается (stripLayout.ts): легенда и правая часть никогда не налезают друг на друга.
 import type Phaser from 'phaser';
 import { ensureTexture } from '../render/canvas';
 import type { HighlightKind } from '../render/field';
@@ -9,13 +10,23 @@ import { DEPTH, STRIP } from '../render/layout';
 import { iconKey } from '../render/textures';
 import type { LevelData, SimSnapshot } from '../types';
 import { t } from './i18n';
+import {
+  LEGEND_GAP,
+  LEGEND_ICON_W,
+  LOOP_ALL_W,
+  LOOP_GAP,
+  LOOP_LABEL_GAP,
+  LOOP_ROBOT_W_NUMBER,
+  fitStrip,
+  legendWidth,
+  loopButtons,
+} from './stripLayout';
 import { COLOR, SIZE, css, robotColor } from './theme';
 import { Button, txt } from './widgets';
 
 /** Порядок в легенде — по ходу производства: сырьё, обработка, хранение, старт, доки. */
 const ORDER: readonly HighlightKind[] = ['depot', 'tank', 'press', 'assembler', 'shelf', 'pad', 'dock'];
 const H = 28;
-const GAP = 6;
 
 export interface StripHandlers {
   legend(kind: HighlightKind): void;
@@ -47,46 +58,48 @@ function swatch(scene: Phaser.Scene, color: number): string {
   });
 }
 
+const legendLabel = (kind: HighlightKind): string => `— ${t(`legend.${kind}`)}`;
+
 export class FieldStrip {
   private readonly scene: Phaser.Scene;
   private readonly handlers: StripHandlers;
+  private readonly numberOf: (robotId: number) => number;
   private readonly filterLabel: Phaser.GameObjects.Text;
+  /** Строки легенды: машина, ширина кнопки с надписью, новая ли она на этом уровне. */
+  private readonly legend: { kind: HighlightKind; w: number; fresh: boolean }[] = [];
+  private readonly legendFull: number;
+  private readonly legendIcons: number;
+  private legendButtons: Button[] = [];
+  private iconsOnly: boolean | null = null;
   private filter: { id: number | null; button: Button }[] = [];
-  private filterSig = '';
-  private shown = true;
+  private sig = '';
 
-  constructor(scene: Phaser.Scene, level: LevelData, all: readonly LevelData[], handlers: StripHandlers) {
+  /** numberOf — номер робота, как в подписи «Робот N» на панели (ui/robotNumbers.ts). */
+  constructor(
+    scene: Phaser.Scene,
+    level: LevelData,
+    all: readonly LevelData[],
+    handlers: StripHandlers,
+    numberOf: (robotId: number) => number = (id) => id + 1,
+  ) {
     this.scene = scene;
     this.handlers = handlers;
-    const d = DEPTH.marker;
-    const y = STRIP.y + STRIP.h / 2;
+    this.numberOf = numberOf;
     const fresh = newKinds(level, all);
-    let x = STRIP.x;
     for (const kind of legendKinds(level)) {
-      const label = `— ${t(`legend.${kind}`)}`;
-      const probe = txt(scene, 0, 0, label, { size: SIZE.small });
+      const probe = txt(scene, 0, 0, legendLabel(kind), { size: SIZE.small });
       // Иконка 20 + зазор 8 + надпись + поля по 10 с каждой стороны.
       const w = Math.ceil(probe.width) + 48;
       probe.destroy();
-      const icon = kind === 'dock' ? 'dock_legend' : iconKey(kind);
-      const b = new Button(scene, x + w / 2, y, {
-        w,
-        h: H,
-        label,
-        kind: 'quiet',
-        size: SIZE.small,
-        icon,
-        iconSize: 20,
-        depth: d,
-        onClick: () => handlers.legend(kind),
-      });
-      if (fresh.has(kind)) {
-        // Новая на этом уровне машина: точка в углу и подпись видна ярче.
-        b.root.add(scene.add.circle(w / 2 - 5, -H / 2 + 5, 3.5, COLOR.accent));
-      }
-      x += w + GAP;
+      this.legend.push({ kind, w, fresh: fresh.has(kind) });
     }
-    this.filterLabel = txt(scene, 0, y, t('strip.loops'), { size: SIZE.micro, color: COLOR.faint, caps: true, ox: 1, oy: 0.5 }).setDepth(d);
+    this.legendFull = legendWidth(this.legend.map((it) => it.w));
+    this.legendIcons = legendWidth(this.legend.map(() => LEGEND_ICON_W));
+    const y = STRIP.y + STRIP.h / 2;
+    this.filterLabel = txt(scene, 0, y, t('strip.loops'), { size: SIZE.micro, color: COLOR.faint, caps: true, ox: 1, oy: 0.5 })
+      .setDepth(DEPTH.marker)
+      .setVisible(false);
+    this.layoutLegend(false);
   }
 
   /** Новые машины уровня — чтобы подсветить их на карте в начале. */
@@ -94,34 +107,54 @@ export class FieldStrip {
     return [...newKinds(level, all)];
   }
 
-  update(snap: SimSnapshot, solo: number | null): void {
-    // Выбор петель нужен, когда роботов хотя бы двое; в режиме обучения его место занимает плашка.
+  /**
+   * Выбор петель нужен, когда роботов хотя бы двое; в режиме обучения его место занимает плашка
+   * шириной reserveRight — легенда ужимается и под неё.
+   */
+  update(snap: SimSnapshot, solo: number | null, reserveRight = 0): void {
     const show = snap.mode !== 'teach' && snap.robots.length >= 2;
-    const sig = snap.robots.map((r) => `${r.id}:${r.colorIndex}`).join(',');
-    if (show && sig !== this.filterSig) this.rebuild(snap);
-    if (show !== this.shown) {
-      this.shown = show;
-      this.filterLabel.setVisible(show);
-      for (const f of this.filter) f.button.setVisible(show);
+    const robots = show ? loopButtons(snap.robots, this.numberOf) : [];
+    const right = show ? 0 : reserveRight;
+    const sig = `${right}|${robots.map((r) => `${r.robotId}:${r.colorIndex}:${r.number}`).join(',')}`;
+    if (sig !== this.sig) {
+      this.sig = sig;
+      this.relayout(robots, right);
     }
-    if (show) for (const f of this.filter) f.button.setActive(f.id === solo);
+    for (const f of this.filter) f.button.setActive(f.id === solo);
   }
 
-  private rebuild(snap: SimSnapshot): void {
-    this.filterSig = snap.robots.map((r) => `${r.id}:${r.colorIndex}`).join(',');
+  private relayout(robots: ReturnType<typeof loopButtons>, right: number): void {
+    const fit = fitStrip({
+      width: STRIP.w,
+      legendFull: this.legendFull,
+      legendIcons: this.legendIcons,
+      labelW: this.filterLabel.width,
+      robots: robots.length,
+      right,
+    });
+    this.layoutLegend(fit.icons);
     for (const f of this.filter) f.button.destroy();
     this.filter = [];
+    this.filterLabel.setVisible(robots.length > 0 && fit.label);
+    if (robots.length === 0) return;
     const d = DEPTH.marker;
     const y = STRIP.y + STRIP.h / 2;
-    let right = STRIP.x + STRIP.w;
+    // На узкой кнопке номер не помещается — остаётся кружок цвета петли (цвет совпадает с петлёй на карте).
+    const withNumber = fit.robotW >= LOOP_ROBOT_W_NUMBER;
     const items: { id: number | null; label: string; icon?: string; w: number }[] = [
-      { id: null, label: t('strip.all'), w: 52 },
-      ...snap.robots.map((r) => ({ id: r.id, label: String(r.id + 1), icon: swatch(this.scene, robotColor(r.colorIndex)), w: 46 })),
+      { id: null, label: t('strip.all'), w: LOOP_ALL_W },
+      ...robots.map((r) => ({
+        id: r.robotId,
+        label: withNumber ? String(r.number) : '',
+        icon: swatch(this.scene, robotColor(r.colorIndex)),
+        w: fit.robotW,
+      })),
     ];
     // Справа налево: последняя кнопка у края полосы.
+    let x = STRIP.x + STRIP.w;
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i];
-      const button = new Button(this.scene, right - it.w / 2, y, {
+      const button = new Button(this.scene, x - it.w / 2, y, {
         w: it.w,
         h: H,
         label: it.label,
@@ -132,8 +165,38 @@ export class FieldStrip {
         onClick: () => this.handlers.solo(it.id),
       });
       this.filter.unshift({ id: it.id, button });
-      right -= it.w + 4;
+      x -= it.w + LOOP_GAP;
     }
-    this.filterLabel.setX(right - 6);
+    this.filterLabel.setX(x - LOOP_LABEL_GAP);
+  }
+
+  /** Кнопки легенды: с надписями или одними значками (когда справа не хватает места). */
+  private layoutLegend(iconsOnly: boolean): void {
+    if (iconsOnly === this.iconsOnly) return;
+    this.iconsOnly = iconsOnly;
+    for (const b of this.legendButtons) b.destroy();
+    this.legendButtons = [];
+    const y = STRIP.y + STRIP.h / 2;
+    let x = STRIP.x;
+    for (const it of this.legend) {
+      const w = iconsOnly ? LEGEND_ICON_W : it.w;
+      const b = new Button(this.scene, x + w / 2, y, {
+        w,
+        h: H,
+        label: iconsOnly ? '' : legendLabel(it.kind),
+        kind: 'quiet',
+        size: SIZE.small,
+        icon: it.kind === 'dock' ? 'dock_legend' : iconKey(it.kind),
+        iconSize: 20,
+        depth: DEPTH.marker,
+        onClick: () => this.handlers.legend(it.kind),
+      });
+      if (it.fresh) {
+        // Новая на этом уровне машина: точка в углу кнопки.
+        b.root.add(this.scene.add.circle(w / 2 - 5, -H / 2 + 5, 3.5, COLOR.accent));
+      }
+      this.legendButtons.push(b);
+      x += w + LEGEND_GAP;
+    }
   }
 }
