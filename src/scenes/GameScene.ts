@@ -29,6 +29,7 @@ import { TopBar } from '../ui/topBar';
 import type { Speed } from '../ui/topBar';
 import { TelemetryPanel } from '../ui/telemetryPanel';
 import { bottleneckHintKey, bottleneckSpot } from '../ui/telemetryModel';
+import { toFtcJava } from '../ui/ftcCode';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { MissInfo, TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, plateKey, setColor, setText, txt } from '../ui/widgets';
@@ -128,6 +129,10 @@ export class GameScene extends Phaser.Scene {
   private numbers = new RobotNumbers();
   /** Последний промах в настоящем мире — подсказка про датчик ведёт к этому роботу и этому действию. */
   private lastMiss: MissInfo | null = null;
+  /** Think Award: игрок открыл телеметрию во время работы линии («измерил»)… */
+  private measured = false;
+  /** …и после этого что-то исправил на ходу («исправил»). Если уровень пройден — награда. */
+  private fixed = false;
   /** Сцена собрана: до этого (или если уровень не загрузился) update ничего не делает. */
   private ready = false;
 
@@ -154,6 +159,8 @@ export class GameScene extends Phaser.Scene {
     this.stars = 0;
     this.lastMiss = null;
     this.numbers = new RobotNumbers();
+    this.measured = false;
+    this.fixed = false;
 
     const stress = data?.levelId === STRESS_ID;
     this.frames = new FrameStats();
@@ -209,11 +216,13 @@ export class GameScene extends Phaser.Scene {
       toggleSense: () => this.editSelected((p) => toggleSense(p, this.pick), 'sense'),
       wait: (delta) => this.editSelected((p) => changeWait(p, this.pick, delta), delta > 0 ? 'waitMore' : 'waitLess'),
       copy: () => this.copySelected(),
+      newRoute: () => this.newRoute(),
       rewrite: () => this.rewriteSelected(),
       removeRobot: () => this.removeSelected(),
       toggleCode: () => {
         this.code = !this.code;
       },
+      ftcCode: () => this.openFtcCode(),
       sell: () => this.sellSelected(),
     }, (id) => this.numbers.of(id));
     this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
@@ -490,6 +499,9 @@ export class GameScene extends Phaser.Scene {
       case 'KeyR':
         this.copyHotkey();
         break;
+      case 'KeyN':
+        this.newRoute();
+        break;
       case 'Delete':
       case 'Backspace':
         if (this.view.kind === 'robot' && this.pick >= 0 && !this.code) this.editSelected((p) => removeBlock(p, this.pick), 'remove');
@@ -509,7 +521,41 @@ export class GameScene extends Phaser.Scene {
     if (m) this.setView({ kind: 'machine', machineId: m.id });
   }
 
+  /**
+   * N или «Свой путь (N)»: новый робот со своим маршрутом — игрок показывает ему другую работу.
+   * Берём свободный док (у него своя полоса, и оттуда обычно удобнее начать вторую работу);
+   * если свободных нет — док выбранного или последнего робота: на одном доке могут жить разные маршруты.
+   */
+  private newRoute(): void {
+    const s = this.snap;
+    if (s.mode !== 'plan' && s.mode !== 'running') return;
+    const free = this.level.docks.findIndex((_, i) => !s.robots.some((r) => r.dock === i));
+    const near = this.selectedRobot() ?? s.robots[s.robots.length - 1] ?? null;
+    const dock = free >= 0 ? free : (near?.dock ?? 0);
+    this.beginTeach(dock);
+    if (s.robots.length > 0 && this.sim.snapshot().mode === 'teach') this.toasts.show(t('robot.routeStart', { dock: dock + 1 }), 'info');
+  }
+
+  /** Окно «код для настоящего робота»: программа выбранного робота как OpMode FTC на Java. */
+  private openFtcCode(): void {
+    const r = this.selectedRobot();
+    if (!r || this.scene.isActive('Code')) return;
+    const robot = this.numbers.of(r.id);
+    const lines = toFtcJava(r.pendingProgram ?? r.program, { robot, dock: r.dock + 1 });
+    this.scene.launch('Code', { lines, robot });
+    this.scene.pause();
+  }
+
+  /**
+   * Инженерный цикл для награды Think Award: измерил (телеметрия во время работы линии) → исправил
+   * (правка программы, копия, новый робот, покупка) → линия справилась. Отмечаем «исправил» только после «измерил».
+   */
+  private noteFix(): void {
+    if (this.measured && this.sim.snapshot().mode === 'running') this.fixed = true;
+  }
+
   private setTelemetry(open: boolean): void {
+    if (open && this.snap?.mode === 'running') this.measured = true;
     this.telemetryOpen = open;
     if (open && !this.telemetry) {
       this.telemetry = new TelemetryPanel(
@@ -575,6 +621,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.view = { kind: 'robot', robotId: r.id };
     this.pick = -1;
+    this.noteFix();
     // Копии, заказанные клавишей R во время показа: встают на тот же док, сдвиг делит круг поровну.
     const copies = this.teachCopies;
     this.teachCopies = 0;
@@ -657,6 +704,7 @@ export class GameScene extends Phaser.Scene {
       this.fail(done.reason);
       return;
     }
+    this.noteFix();
     // Держим выбор на том же блоке, даже если перед ним появился или исчез датчик.
     const grew = next.length - base.length;
     if (kind === 'sense' && base[this.pick]?.op !== 'sense') this.pick += grew;
@@ -681,6 +729,7 @@ export class GameScene extends Phaser.Scene {
       this.fail(res.reason);
       return;
     }
+    this.noteFix();
     this.toasts.show(t('robot.copied', { n: delay }), 'ok');
   }
 
@@ -748,6 +797,7 @@ export class GameScene extends Phaser.Scene {
       this.fail(r.reason);
       return;
     }
+    this.noteFix();
     this.toggleBuy(null);
   }
 
@@ -884,6 +934,9 @@ export class GameScene extends Phaser.Scene {
     let offerHint = false;
     if (passed) hints.won(this.level.id);
     else offerHint = hints.lost(this.level.id);
+    // Think Award: измерил → исправил на ходу → линия справилась. Награда запоминается за уровень.
+    const thinkAward = passed && this.measured && this.fixed;
+    if (thinkAward) store.award(this.level.id);
     const data: ResultsData = {
       levelId: this.level.id,
       won,
@@ -903,6 +956,7 @@ export class GameScene extends Phaser.Scene {
       best,
       bottleneckKey: s.bottleneck ? bottleneckHintKey(s.bottleneck, this.level, s) : null,
       offerHint,
+      thinkAward,
     };
     audio.play(won ? 'win' : 'lose');
     this.scene.launch('Results', data);
@@ -969,6 +1023,11 @@ export class GameScene extends Phaser.Scene {
       if (!box && target.id === 'copy') {
         const r = s.robots[s.robots.length - 1];
         if (r) at = above(this.level.docks[r.dock].x, this.level.docks[r.dock].y);
+      }
+      // Кнопки «Свой путь (N)» не видно — стрелка на свободный док: нажать на него тоже значит «новый маршрут».
+      if (!box && target.id === 'route') {
+        const free = this.level.docks.findIndex((_, i) => !s.robots.some((r) => r.dock === i));
+        if (free >= 0) at = above(this.level.docks[free].x, this.level.docks[free].y);
       }
     }
     this.tutArrow.setVisible(at !== null);

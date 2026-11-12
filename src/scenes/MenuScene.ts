@@ -71,9 +71,11 @@ export class MenuScene extends Phaser.Scene {
     for (const [key, label] of [
       ['Esc', t('keys.pause')],
       ['R', t('keys.copy')],
+      ['N', t('keys.route')],
       ['Tab', t('keys.tab')],
     ] as const) {
-      kx += keyHint(this, kx, keysY, key, label) + 22;
+      // Четыре клавиши в строку должны уместиться слева от живой линии (до DEMO_X), поэтому зазор меньше.
+      kx += keyHint(this, kx, keysY, key, label) + 16;
     }
 
     // Живая линия справа и подпись к ней.

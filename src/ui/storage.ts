@@ -34,11 +34,15 @@ export interface Store {
   /** Запоминает лучший результат. Возвращает true, если это первый проход или рекорд по звёздам или запускам. */
   saveResult(levelId: string, result: LevelRecord): boolean;
   totalStars(): number;
+  /** Think Award за уровень: игрок измерил линию телеметрией и исправил её на ходу. */
+  award(levelId: string): void;
+  hasAward(levelId: string): boolean;
   reset(): void;
 }
 
 const SETTINGS_KEY = 'tminus.settings.v1';
 const PROGRESS_KEY = 'tminus.progress.v1';
+const AWARDS_KEY = 'tminus.awards.v1';
 const DEFAULTS: Settings = { master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru', theme: 'dark' };
 const themeName = (v: unknown): ThemeName => (v === 'light' ? 'light' : 'dark');
 
@@ -76,6 +80,9 @@ export function createStore(backend: StorageLike | null): Store {
     lang: typeof s.lang === 'string' ? s.lang : DEFAULTS.lang,
     theme: themeName(s.theme),
   };
+
+  const savedAwards = read(backend, AWARDS_KEY);
+  let awards = new Set<string>(Array.isArray(savedAwards) ? savedAwards.filter((x): x is string => typeof x === 'string') : []);
 
   let progress: Record<string, LevelRecord> = {};
   const savedProgress = read(backend, PROGRESS_KEY);
@@ -119,11 +126,19 @@ export function createStore(backend: StorageLike | null): Store {
       return better;
     },
     totalStars: () => Object.values(progress).reduce((n, r) => n + r.stars, 0),
+    award(levelId) {
+      if (awards.has(levelId)) return;
+      awards.add(levelId);
+      write(backend, AWARDS_KEY, [...awards]);
+    },
+    hasAward: (levelId) => awards.has(levelId),
     reset() {
       progress = {};
+      awards = new Set();
       if (!backend) return;
       try {
         backend.removeItem(PROGRESS_KEY);
+        backend.removeItem(AWARDS_KEY);
       } catch {
         // Нечего удалять, если хранилище недоступно.
       }

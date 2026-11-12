@@ -5,7 +5,7 @@
 import Phaser from 'phaser';
 import { TILE } from '../types';
 import type { Dir, LevelData, MachineView, OperatorView, RobotView, SimEvent, SimSnapshot } from '../types';
-import { COLOR, ITEM_COLOR, LAMP, css, robotColor } from '../ui/theme';
+import { COLOR, ITEM_COLOR, LAMP, SIZE, css, robotColor } from '../ui/theme';
 import { CanvasLayer } from './canvas';
 import { cellAt, cellCenter } from './layout';
 import { Fx } from './fx';
@@ -16,6 +16,8 @@ import { laneOffset, robotPose } from './robotPose';
 import { robotFrameName, robotSheet, viewOf, walkFrame } from './robotSprites';
 import type { RobotFrame } from './robotSprites';
 import { iconKey, tileKey } from './textures';
+import { t } from '../ui/i18n';
+import { textRes, txt } from '../ui/widgets';
 
 /** За сколько секунд оператор доходит до новой клетки после нажатия. */
 const OPERATOR_STEP = 0.12;
@@ -97,7 +99,8 @@ export class FieldView {
   private readonly fx: Fx;
   private readonly machines = new Map<number, MachineSprite>();
   private readonly robots = new Map<number, RobotSprite>();
-  private readonly docks: { ring: Phaser.GameObjects.Arc; plus: Phaser.GameObjects.Image }[] = [];
+  /** Доки: кольцо, плюс и подпись «свой путь (N)» — она появляется у свободного дока, когда первый робот уже стоит. */
+  private readonly docks: { ring: Phaser.GameObjects.Arc; plus: Phaser.GameObjects.Image; label: Phaser.GameObjects.Text; pulsing: boolean }[] = [];
   private readonly rocket: Rocket | null;
   private operator: RobotSprite | null = null;
   private opFrom = { x: 0, y: 0 };
@@ -132,8 +135,11 @@ export class FieldView {
       const c = this.center(d.x, d.y);
       const ring = scene.add.circle(c.x, c.y, 16).setStrokeStyle(3, COLOR.faint).setFillStyle(COLOR.floor, 1);
       const plus = scene.add.image(c.x, c.y, 'dock_plus').setDisplaySize(16, 16);
-      this.dockLayer.add([ring, plus]);
-      this.docks.push({ ring, plus });
+      // Подпись лежит в увеличенной карте: рисуем её плотнее, чтобы буквы не мылились.
+      const label = txt(scene, c.x, c.y + 27, t('dock.route'), { size: SIZE.micro, color: COLOR.dim, ox: 0.5, oy: 0.5 }).setVisible(false);
+      label.setResolution(Math.min(3, textRes() * Math.max(1, scale)));
+      this.dockLayer.add([ring, plus, label]);
+      this.docks.push({ ring, plus, label, pulsing: false });
     });
     const pad = level.machines.find((m) => m.type === 'pad');
     this.rocket = pad ? new Rocket(scene, this.robotLayer, this.center(pad.x, pad.y).x, this.center(pad.x, pad.y).y) : null;
@@ -553,7 +559,21 @@ export class FieldView {
       const color = teaching ? COLOR.teach : owner ? robotColor(owner.colorIndex) : COLOR.faint;
       if (d.ring.strokeColor !== color) d.ring.setStrokeStyle(3, color);
       // Плюс — «здесь можно показать нового робота»: и до старта, и пока линия работает.
-      d.plus.setVisible(!owner && !teaching && (snap.mode === 'plan' || snap.mode === 'running'));
+      const free = !owner && !teaching && (snap.mode === 'plan' || snap.mode === 'running');
+      d.plus.setVisible(free);
+      // Первый робот уже стоит, а этот док свободен — он мягко пульсирует и подписан «свой путь (N)»:
+      // здесь можно поставить робота с другим маршрутом (копия на R ходила бы той же петлёй).
+      const invite = free && snap.robots.length > 0 && !snap.operator;
+      if (d.label.visible !== invite) d.label.setVisible(invite);
+      if (invite) {
+        const k = 0.5 + 0.5 * Math.sin(this.scene.time.now / 260);
+        d.ring.setScale(1 + 0.14 * k);
+        d.label.setAlpha(0.55 + 0.45 * k);
+        d.pulsing = true;
+      } else if (d.pulsing) {
+        d.ring.setScale(1);
+        d.pulsing = false;
+      }
     });
   }
 
