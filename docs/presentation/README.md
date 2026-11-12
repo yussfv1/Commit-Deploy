@@ -1,0 +1,69 @@
+# Презентация для защиты — исходник
+
+Готовый файл — [`docs/presentation.pdf`](../presentation.pdf): 10 слайдов 1920 × 1080 pt, шрифты PT Sans,
+PT Sans Narrow и PT Mono встроены, ссылки и QR кликабельные. Здесь лежит то, из чего он собирается.
+
+| Файл | Что это |
+|---|---|
+| `presentation.html` | все 10 слайдов, каждый — `<section class="slide">` 1920 × 1080; текст правится прямо здесь |
+| `assets/screens/` | кадры игры 2048 × 1152 с холста, без монтажа; на слайде их кадрирует только CSS (`--sx`, `--sy`, `--sw`) |
+| `tools/build.mjs` | сборка PDF через Google Chrome и проверка вёрстки |
+| `tools/make_qr.py`, `tools/qr_gen.swift` | QR-коды (библиотека Core Image, уровень M, тихая зона 4 модуля) |
+| `tools/pdf_render.swift`, `qr_decode.swift`, `pdf_text.swift` | проверки готового PDF на Mac |
+
+Логотип и ракета вставлены в слайды прямо из [`docs/assets-src/`](../assets-src/) — те же контуры и цвета.
+
+## Пересобрать PDF
+
+Из корня репозитория:
+
+```bash
+node docs/presentation/tools/build.mjs
+```
+
+Нужны Node 22+ и Google Chrome, npm-пакеты не нужны. PDF ложится в `docs/presentation.pdf`. Перед печатью скрипт
+проверяет каждый слайд и печатает таблицу: слова (заголовок до 8, остальное до 20, кроме 10-го слайда), выход за поля,
+наезды текста на текст и кадры, висячие короткие слова, контраст, один оранжевый элемент, какими шрифтами Chrome
+нарисовал текст. После печати проверяет сам PDF: 10 страниц, лист 1920 × 1080, встроенные шрифты, ссылки.
+Код выхода 1 — есть замечания.
+
+На Windows: если Chrome стоит не в `C:\Program Files\Google\Chrome\Application`, укажите путь в переменной `CHROME`.
+Если в системе нет PT Sans, добавьте `--web-fonts`, и шрифты придут с Google Fonts.
+
+## Проверки на Mac
+
+```bash
+swift docs/presentation/tools/pdf_render.swift docs/presentation.pdf docs/presentation/out/png
+```
+
+```bash
+swift docs/presentation/tools/qr_decode.swift docs/presentation/out/png/slide-06.png docs/presentation/out/png/slide-10.png
+```
+
+```bash
+swift docs/presentation/tools/pdf_text.swift docs/presentation.pdf
+```
+
+Первая рисует страницы PDF так, как их покажет просмотрщик (незакрашенное видно пурпуром), и печатает области ссылок.
+Вторая распознаёт QR. Третья показывает текстовый слой, по которому жюри будет искать и копировать.
+Если поменялся адрес сайта: `python3 docs/presentation/tools/make_qr.py`, потом пересобрать PDF.
+
+## Откуда числа на слайдах
+
+| Слайд | Число | Откуда |
+|---|---|---|
+| 5 | пресс 1,5–3,5 с | уровень 4 «Слепой робот» |
+| 8 | 20 тиков/с | симуляция (`src/sim`) |
+| 8 | 211 тестов | `npm test` на `main` a0dcae5 (12.11): 211 тестов в 25 файлах |
+| 8 | кадр 1,2 мс из 16,7 | Chrome 157, MacBook Pro (Apple M4 Pro), 12.11 |
+| 8 | 1,4 МБ | `build/web/index.html` на a0dcae5 — 1 431 993 байт |
+| 9 | 6 уровней; 10 минут стресс-теста без ошибок; 120 кадров/с | 12.11; 120 кадров/с на живом сайте перепроверено после переименования |
+
+## Ловушки Chrome, найденные при сборке
+
+- Размер листа задаёт `@page`. При `preferCSSPageSize: false` Chrome центрирует страницу из `@page` на бумаге
+  и не растягивает её, поэтому слайд занимал 75 % листа. `build.mjs` подставляет `@page { size: 1920pt 1080pt }`
+  и `html { zoom: 4/3 }`.
+- Параметр `scale` у `printToPDF` сдвигает области ссылок мимо текста. С `zoom` они совпадают.
+- У `figure` по умолчанию поля 40 px, без `margin: 0` кадры съезжают.
+- В PT Sans нет стрелок, поэтому стрелки в схемах нарисованы в SVG.

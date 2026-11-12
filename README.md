@@ -17,7 +17,7 @@
 | Капитан | Ерсултан (GitHub `smqlr`) |
 | Контакт | Telegram капитана [@smq1r](https://t.me/smq1r) |
 | Репозиторий | ведёт Асмир (GitHub `yussfv1`), вопросы по коду — в [Issues](https://github.com/yussfv1/Commit-Deploy/issues) |
-| Видео-демо и презентация | готовятся; ссылки появятся здесь и в форме хакатона |
+| Презентация и видео-демо | презентация — [`docs/presentation.pdf`](docs/presentation.pdf), исходник — [`docs/presentation/`](docs/presentation/); ссылка на видео-демо появится здесь и в форме хакатона |
 
 | Участник | Роль | Зона ответственности | Имя в истории коммитов |
 |---|---|---|---|
@@ -140,7 +140,7 @@ A D, Enter — играть.
 **В браузере (для жюри):** https://yussfv1.github.io/Commit-Deploy/ — Chrome или Firefox, ничего устанавливать не нужно.
 Сайт собирается из `main` автоматически (`.github/workflows/deploy.yml`).
 
-**Без интернета и без установки:** [`build/web/index.html`](build/web/index.html) — та же игра одним файлом (1,3 МБ):
+**Без интернета и без установки:** [`build/web/index.html`](build/web/index.html) — та же игра одним файлом (1,4 МБ):
 код и картинки встроены в страницу. Скачать файл и открыть двойным щелчком. Обычную папку `dist/` так открыть
 нельзя: браузер не загружает JS-модули по `file://`. Файл собирается из исходников командой
 `node scripts/make-offline.mjs`. Отдельной Windows-сборки (.exe) нет: билд — HTML5.
@@ -161,7 +161,7 @@ npm run dev
 |---|---|
 | `npm ci` | ставит зависимости ровно по `package-lock.json` |
 | `npm run dev` | сервер разработки с мгновенной перезагрузкой |
-| `npm test` | 205 тестов в 23 файлах (Vitest) |
+| `npm test` | 211 тестов в 25 файлах (Vitest) |
 | `npm run build` | проверка типов и сборка в `dist/`: 1,4 МБ, главный JS-файл после gzip — 377 КБ |
 | `npm run preview` | готовая сборка на http://localhost:4173 |
 | `node scripts/make-offline.mjs` | собирает `build/web/index.html` — игру одним файлом |

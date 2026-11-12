@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Commit &amp; Deploy — защита на GAMBIT 2026</title>
+<!--
+  Презентация Commit & Deploy: 10 слайдов 1920 × 1080, каждый — <section class="slide">.
+  Править текст можно прямо здесь. Пересобрать PDF:  node tools/build.mjs   (нужен только Google Chrome)
+  Вручную: открыть в Chrome → Печать → «Сохранить как PDF», поля «Нет», фон включён.
+  Шрифты: PT Sans, PT Sans Narrow, PT Mono (свободные). На Mac они есть в системе, на Windows
+  подгружаются с Google Fonts. Кадры игры — файлы assets/screens/*.png без изменений, кадрирует только CSS:
+  --sx/--sy — левый верхний угол участка в пикселях кадра 2048 × 1152, --sw — его ширина.
+  Метки ⟦нужно: …⟧ — места, где команда должна подтвердить факт; сборка печатает их список.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Mono&amp;family=PT+Sans+Narrow:wght@700&amp;family=PT+Sans:wght@400;700&amp;display=block">
+<style>
+@font-face { font-family: "CD Narrow"; font-weight: 700; src: local("PT Sans Narrow Bold"), local("PTSans-NarrowBold"); }
+@font-face { font-family: "CD Sans"; font-weight: 400; src: local("PT Sans"), local("PTSans-Regular"); }
+@font-face { font-family: "CD Sans"; font-weight: 700; src: local("PT Sans Bold"), local("PTSans-Bold"); }
+@font-face { font-family: "CD Mono"; font-weight: 400; src: local("PT Mono"), local("PTMono-Regular"); }
+
+:root {
+  --bg: #09111b; --field: #0f1b2d; --raised: #16263b; --grid: #172739; --line: #1f3048;
+  --text: #e6edf5; --text2: #93a4ba; --text3: #5c6e86;
+  --accent: #ff7a2f; --ok: #5cc98d; --warn: #f2c14e; --miss: #f0574d;
+  --r1: #3ec1ff; --r2: #ffd23f; --r3: #7cf07a;
+  --narrow: "CD Narrow", "PT Sans Narrow", "Arial Narrow", sans-serif;
+  --sans: "CD Sans", "PT Sans", Arial, sans-serif;
+  --mono: "CD Mono", "PT Mono", Consolas, monospace;
+}
+@page { size: 1920px 1080px; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); }
+body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-kerning: normal; }
+@media screen { body { background: #04080d; } .slide { margin: 0 auto 32px; } }
+
+.slide { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg);
+  break-after: page; color: var(--text); font-family: var(--sans); }
+.slide:last-of-type { break-after: auto; }
+.slide p, .slide h1 { margin: 0; }
+.slide > :is(p, h1, a, figure, div) { position: absolute; margin: 0; }
+.slide svg.ov { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+svg.nav { position: absolute; left: 0; top: 996px; }
+
+.h { font: 700 72px/1.08 var(--narrow); color: var(--text); letter-spacing: 0; }
+.dim { color: var(--text2); }
+.lbl { font: 400 28px/1.25 var(--sans); color: var(--text); white-space: nowrap; }
+.cap { font: 400 28px/1.3 var(--sans); color: var(--text); }
+.note { font: 400 24px/1.3 var(--sans); color: var(--text2); }
+.small { font: 400 22px/1.3 var(--sans); color: var(--text2); white-space: nowrap; }
+.plate { font: 700 22px/1 var(--sans); letter-spacing: .08em; color: var(--text2); white-space: nowrap; }
+.c { transform: translateX(-50%); text-align: center; }
+.mono { font-family: var(--mono); }
+a { color: inherit; text-decoration: none; }
+
+/* Кадр игры: файл целиком, видимый участок задают --sx --sy --sw (пиксели кадра 2048 × 1152) */
+.frame { width: var(--w); height: var(--h); overflow: hidden; border-radius: 8px; background: var(--bg); }
+.frame img { position: absolute; max-width: none; height: auto; display: block;
+  width: calc(var(--w) / var(--sw) * 2048);
+  left: calc(var(--w) / var(--sw) * var(--sx) * -1);
+  top: calc(var(--w) / var(--sw) * var(--sy) * -1); }
+.frame .hl { position: absolute; border: 2px solid var(--text); border-radius: 6px; }
+.frame::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--line); border-radius: inherit; pointer-events: none; }
+
+.qr svg { display: block; width: 100%; height: 100%; }
+.need { font: 400 20px/1 var(--mono); color: var(--warn); border: 2px dashed var(--warn); border-radius: 4px;
+  padding: 5px 9px 4px; margin-left: 16px; white-space: nowrap; vertical-align: 4px; }
+
+/* 1 — титул */
+#s1 .sub { font: 400 52px/1.2 var(--sans); color: var(--text); }
+/* 2 — хук */
+#s2 .timer { font: 700 200px/1 var(--narrow); color: var(--accent); letter-spacing: -.005em; }
+/* 4 — вопросы ТЗ */
+#s4 .q { font: 700 36px/1.25 var(--sans); color: var(--text); text-align: right; white-space: nowrap; }
+#s4 .a { font: 400 36px/1.25 var(--sans); color: var(--text2); white-space: nowrap; }
+#s4 .yes { font: 700 26px/1 var(--sans); color: var(--ok); }
+/* 5 — подписи с метками данных */
+.dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 14px; vertical-align: 3px; }
+/* 8 — числа */
+#s8 .num { font: 700 120px/1 var(--narrow); color: var(--text); white-space: nowrap; }
+#s8 .unit { font-size: 64px; margin-left: 2px; }
+#s8 .rule { height: 1px; width: 402px; background: var(--line); }
+/* 9 — две колонки */
+#s9 .col { font: 700 44px/1.1 var(--narrow); color: var(--text); }
+#s9 .it { font: 400 36px/1.25 var(--sans); color: var(--text); white-space: nowrap; }
+#s9 .it b { font: 700 40px/1 var(--narrow); }
+/* 10 — итог */
+#s10 .col { font: 700 30px/1.2 var(--sans); color: var(--text); white-space: nowrap; }
+#s10 .it { font: 400 30px/1.3 var(--sans); color: var(--text); white-space: nowrap; }
+#s10 .who { font: 400 28px/1.3 var(--sans); color: var(--text2); white-space: nowrap; }
+#s10 .who b { color: var(--text); font-weight: 700; }
+#s10 .lnk { font: 400 26px/1.3 var(--mono); color: var(--text); white-space: nowrap; }
+#s10 .rule { left: 120px; top: 488px; width: 1680px; height: 1px; background: var(--line); }
+</style>
+</head>
+<body>
+
+<!-- 1 · Титул · 0:00 · Ерсултан -->
+<section class="slide" id="s1" data-nav="white">
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <!-- одна петля робота: приходит из-за правого края к логотипу, док — кольцо на петле -->
+    <g fill="none" stroke="#3ec1ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1960 453H1196A16 16 0 0 0 1196 485H1960"/>
+      <path d="M1606 445l9 8-9 8"/>
+      <path d="M1486 477l-9 8 9 8"/>
+    </g>
+    <circle cx="1338" cy="469" r="30" fill="#09111b" stroke="#3ec1ff" stroke-width="4"/>
+  </svg>
+  <!-- логотип: docs/assets-src/logo.svg без изменений -->
+  <svg class="logo" data-accent="logo" style="position:absolute;left:120px;top:290px" width="920" height="358" viewBox="0 8 452 176" role="img" aria-label="Commit &amp; Deploy">
+    <g fill="none" stroke="#e8eef7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M52 37 A23 23 0 0 0 6 37 V59 A23 23 0 0 0 52 59"/>
+      <path d="M72 37 V59 A23 23 0 0 0 118 59 V37 A23 23 0 0 0 72 37 Z"/>
+      <path d="M138 82 V14 L165 52 L192 14 V82"/>
+      <path d="M212 82 V14 L239 52 L266 14 V82"/>
+      <path d="M286 14 V82"/>
+      <path d="M306 14 H352 M329 14 V82"/>
+      <path d="M6 110 H20 A32 34 0 0 1 20 178 H6 Z"/>
+      <path d="M116 110 H72 V178 H116 M72 144 H108"/>
+      <path d="M136 178 V110 H158 A22 17 0 0 1 158 144 H136"/>
+      <path d="M200 110 V178 H240"/>
+      <path d="M260 133 V155 A23 23 0 0 0 306 155 V133 A23 23 0 0 0 260 133 Z"/>
+      <path d="M326 110 L349 144 L372 110 M349 144 V178"/>
+    </g>
+    <path d="M440 82 L408 42 C400 32 402 14 416 14 C428 14 432 26 426 34 L406 52 C396 62 400 82 416 82 C426 82 434 74 440 62"
+          fill="none" stroke="#ff7a2f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <p class="sub" style="left:120px;top:704px">Покажи один раз</p>
+  <p class="cap" style="left:120px;top:868px">Асмир · Жалгасхан · Ерсултан — Актобе</p>
+  <p class="plate" style="left:120px;top:922px">GAMBIT 2026 · AUTOMATE IT!</p>
+</section>
+
+<!-- 2 · Хук · 0:05–0:35 · Ерсултан -->
+<section class="slide" id="s2" data-nav="white">
+  <p class="plate" style="left:120px;top:150px">ДО СТАРТА</p>
+  <p class="timer" data-accent="timer" data-optical style="left:118px;top:180px">T−3:00</p>
+  <h1 class="h dim" data-head style="left:120px;top:540px;width:1300px">Как научить робота работать,<br>если ты не программист?</h1>
+  <p class="h" style="left:120px;top:724px">Показать ему.</p>
+  <p class="note" style="left:120px;top:904px">Так программируют промышленных роботов: показом и с пульта</p>
+</section>
+
+<!-- 3 · Core loop · 0:35–0:50 · Ерсултан -->
+<section class="slide" id="s3">
+  <h1 class="h" data-head style="left:120px;top:96px">Один раз показал — дальше работает сам</h1>
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <path d="M182 372H1738A56 56 0 0 1 1794 428V734A56 56 0 0 1 1738 790H182A56 56 0 0 1 126 734V428A56 56 0 0 1 182 372Z"
+          fill="none" stroke="#3ec1ff" stroke-width="12" stroke-linejoin="round"/>
+    <g fill="none" stroke="#09111b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M541 366l6 6-6 6"/><path d="M957 366l6 6-6 6"/><path d="M1373 366l6 6-6 6"/>
+      <path d="M1788 578l6 6 6-6"/>
+      <path d="M1171 784l-6 6 6 6"/><path d="M755 784l-6 6 6 6"/>
+      <path d="M120 584l6-6 6 6"/>
+    </g>
+    <g fill="#09111b" stroke="#3ec1ff" stroke-width="8">
+      <circle cx="336" cy="372" r="18"/><circle cx="752" cy="372" r="18"/>
+      <circle cx="1168" cy="372" r="18"/><circle cx="1584" cy="372" r="18"/>
+    </g>
+  </svg>
+  <p class="lbl c" style="left:336px;top:296px">Покажи</p>
+  <p class="lbl c" style="left:752px;top:296px">Запись стала программой</p>
+  <p class="lbl c" style="left:1168px;top:296px">Робот повторяет</p>
+  <p class="lbl c" style="left:1584px;top:296px">Улучши</p>
+  <figure class="frame" style="left:160px;top:418px;--w:352px;--h:264px;--sx:20;--sy:300;--sw:980"><img src="assets/screens/03-teach.png" alt="Показ на уровне 1"></figure>
+  <figure class="frame" style="left:576px;top:418px;--w:352px;--h:264px;--sx:1647;--sy:210;--sw:399"><img src="assets/screens/06-code.png" alt="Программа текстом"></figure>
+  <figure class="frame" style="left:992px;top:418px;--w:352px;--h:264px;--sx:312;--sy:253;--sw:1198"><img src="assets/screens/08-copy.png" alt="Робот и его копия"></figure>
+  <figure class="frame" style="left:1408px;top:418px;--w:352px;--h:264px;--sx:31;--sy:164;--sw:1095"><img src="assets/screens/07-telemetry.png" alt="Телеметрия"></figure>
+  <p class="small" style="left:1408px;top:694px;font-size:21px">датчик · ожидание · копия · покупка</p>
+</section>
+
+<!-- 4 · Что автоматизирует игрок · 0:50–1:05 · Ерсултан -->
+<section class="slide" id="s4" data-nav="white">
+  <h1 class="h" data-head style="left:120px;top:96px">Игрок ничего не носит — он строит систему</h1>
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <!-- участки линии — цвета роботов, как в игре: синий везёт руду, жёлтый — пластину, зелёный — ячейку -->
+    <g stroke-width="12" stroke-linecap="round">
+      <path d="M220 392H700" stroke="#3ec1ff"/>
+      <path d="M700 392H1180" stroke="#ffd23f"/>
+      <path d="M1180 392H1598" stroke="#7cf07a"/>
+    </g>
+    <g fill="#0f1b2d" stroke="#e6edf5" stroke-width="4">
+      <circle cx="220" cy="392" r="44"/><circle cx="700" cy="392" r="44"/><circle cx="1180" cy="392" r="44"/>
+    </g>
+    <!-- руда -->
+    <path d="M200 388L210 374L228 372L240 386L236 404L218 412L202 404Z" fill="#c9834c"/>
+    <!-- пластина -->
+    <rect x="678" y="381" width="44" height="22" rx="3" fill="#b9c7d8"/>
+    <path d="M685 392H715" stroke="#7d8ca2" stroke-width="3" stroke-linecap="round"/>
+    <!-- ячейка -->
+    <rect x="1174" y="364" width="12" height="6" rx="1.5" fill="#f2c14e"/>
+    <rect x="1166" y="369" width="28" height="44" rx="4" fill="#f2c14e"/>
+    <path d="M1183 376L1173 393H1180L1177 406L1188 388H1181Z" fill="#09111b"/>
+    <!-- ракета: docs/assets-src/rocket.svg -->
+    <g data-accent="rocket" transform="translate(1628 330)">
+      <defs><clipPath id="hull"><path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z"/></clipPath></defs>
+      <path d="M17 70 L4 104 L17 99 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M47 70 L60 104 L47 99 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M23 99 H41 L44 112 H20 Z" fill="#2e4565" stroke="#5c6e86" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M22 106 H42" stroke="#5c6e86" stroke-width="1.5"/>
+      <path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z" fill="#e9eef5"/>
+      <g clip-path="url(#hull)">
+        <rect x="10" y="0" width="44" height="25" fill="#ff7a2f"/>
+        <rect x="10" y="80" width="44" height="7" fill="#ff7a2f"/>
+        <path d="M14 68 H50" stroke="#c3cedb" stroke-width="1.5"/>
+        <path d="M40 0 C46 24 48 42 48 58 L48 100 L40 100 Z" fill="#000" opacity="0.07"/>
+      </g>
+      <path d="M32 4 C46 22 48 40 48 58 L48 100 L16 100 L16 58 C16 40 18 22 32 4 Z" fill="none" stroke="#5c6e86" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M30 86 H34 V104 H30 Z" fill="#ff7a2f" stroke="#8c3d12" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="32" cy="47" r="8" fill="#0f1b2d" stroke="#5c6e86" stroke-width="2"/>
+      <circle cx="32" cy="47" r="4.5" fill="none" stroke="#3ec1ff" stroke-width="1.5" opacity="0.8"/>
+    </g>
+    <!-- три вопроса ТЗ: зелёная линия «да» -->
+    <path d="M818 643V835" stroke="#5cc98d" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#5cc98d"><circle cx="818" cy="643" r="12"/><circle cx="818" cy="739" r="12"/><circle cx="818" cy="835" r="12"/></g>
+  </svg>
+  <p class="lbl c" style="left:220px;top:462px">Руда</p>
+  <p class="lbl c" style="left:700px;top:462px">Пластина</p>
+  <p class="lbl c" style="left:1180px;top:462px">Ячейка</p>
+  <p class="lbl c" style="left:1660px;top:462px">Ракета</p>
+  <p class="yes c" style="left:818px;top:578px">да</p>
+  <p class="q" style="right:1134px;top:620px">Роботы обязательны?</p>
+  <p class="q" style="right:1134px;top:716px">Можно улучшать?</p>
+  <p class="q" style="right:1134px;top:812px">Работает сама?</p>
+  <p class="a" style="left:850px;top:620px">игрок только показывает</p>
+  <p class="a" style="left:850px;top:716px">датчики, копии, покупки</p>
+  <p class="a" style="left:850px;top:812px">тесты без игрока</p>
+</section>
+
+<!-- 5 · Слепой робот против датчика · 1:05–1:20 · Асмир -->
+<section class="slide" id="s5">
+  <h1 class="h" data-head style="left:120px;top:96px">Датчик — это обратная связь</h1>
+  <p class="cap dim" style="left:120px;top:198px">Пресс работает 1,5–3,5 с</p>
+  <figure class="frame" style="left:120px;top:296px;--w:828px;--h:413px;--sx:737;--sy:97;--sw:1296"><img src="assets/screens/04-blind.png" alt="Слепой робот, уровень 4"><i class="hl" style="left:585px;top:70px;width:230px;height:75px"></i></figure>
+  <figure class="frame" style="left:972px;top:296px;--w:828px;--h:413px;--sx:737;--sy:97;--sw:1296"><img src="assets/screens/05-sensor.png" alt="Тот же робот с датчиком"><i class="hl" style="left:585px;top:70px;width:230px;height:75px"></i></figure>
+  <p class="cap" style="left:120px;top:734px"><span class="dot" style="background:#f0574d"></span>По таймеру — промахи</p>
+  <p class="cap" style="left:972px;top:734px"><span class="dot" style="background:#5cc98d"></span>С датчиком — новых промахов нет</p>
+  <p class="note" style="left:120px;top:904px">Как автономка на таймерах против автономки на датчиках</p>
+</section>
+
+<!-- 6 · Живое демо · 1:20–3:15 · играет Жалгасхан, комментирует Асмир -->
+<section class="slide" id="s6">
+  <h1 class="h" data-head style="left:120px;top:290px;font-size:80px">Сейчас покажем</h1>
+  <a class="qr" href="https://yussfv1.github.io/Commit-Deploy/?pitch" style="left:120px;top:432px;width:296px;height:296px"><!--QR:pitch--><svg class="qr-svg" viewBox="0 0 41 41" role="img" aria-label="QR: https://yussfv1.github.io/Commit-Deploy/?pitch"><rect width="41" height="41" rx="0.8" fill="#e6edf5"/><path fill="#09111b" d="M4 4h7v1h-7zM13 4h3v1h-3zM17 4h1v1h-1zM20 4h8v1h-8zM30 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM14 5h1v1h-1zM16 5h6v1h-6zM24 5h1v1h-1zM28 5h1v1h-1zM30 5h1v1h-1zM36 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h2v1h-2zM19 6h4v1h-4zM24 6h4v1h-4zM30 6h1v1h-1zM32 6h3v1h-3zM36 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM12 7h2v1h-2zM15 7h1v1h-1zM18 7h1v1h-1zM20 7h1v1h-1zM24 7h1v1h-1zM26 7h1v1h-1zM28 7h1v1h-1zM30 7h1v1h-1zM32 7h3v1h-3zM36 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h1v1h-1zM15 8h3v1h-3zM19 8h1v1h-1zM22 8h1v1h-1zM25 8h1v1h-1zM27 8h1v1h-1zM30 8h1v1h-1zM32 8h3v1h-3zM36 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM12 9h2v1h-2zM16 9h1v1h-1zM18 9h5v1h-5zM24 9h1v1h-1zM26 9h1v1h-1zM28 9h1v1h-1zM30 9h1v1h-1zM36 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h1v1h-1zM28 10h1v1h-1zM30 10h7v1h-7zM12 11h1v1h-1zM14 11h1v1h-1zM16 11h1v1h-1zM18 11h2v1h-2zM22 11h1v1h-1zM25 11h1v1h-1zM4 12h1v1h-1zM6 12h5v1h-5zM14 12h2v1h-2zM17 12h3v1h-3zM21 12h2v1h-2zM24 12h1v1h-1zM28 12h1v1h-1zM30 12h5v1h-5zM4 13h4v1h-4zM16 13h1v1h-1zM20 13h1v1h-1zM22 13h3v1h-3zM26 13h2v1h-2zM30 13h2v1h-2zM33 13h2v1h-2zM4 14h3v1h-3zM10 14h1v1h-1zM12 14h2v1h-2zM15 14h1v1h-1zM19 14h2v1h-2zM22 14h1v1h-1zM25 14h1v1h-1zM30 14h1v1h-1zM32 14h1v1h-1zM34 14h2v1h-2zM4 15h2v1h-2zM8 15h2v1h-2zM12 15h2v1h-2zM18 15h1v1h-1zM20 15h1v1h-1zM25 15h1v1h-1zM27 15h3v1h-3zM32 15h4v1h-4zM5 16h2v1h-2zM8 16h1v1h-1zM10 16h2v1h-2zM14 16h1v1h-1zM16 16h1v1h-1zM22 16h2v1h-2zM25 16h1v1h-1zM32 16h2v1h-2zM35 16h2v1h-2zM5 17h1v1h-1zM7 17h1v1h-1zM13 17h3v1h-3zM17 17h5v1h-5zM24 17h2v1h-2zM27 17h1v1h-1zM30 17h1v1h-1zM33 17h4v1h-4zM5 18h1v1h-1zM8 18h1v1h-1zM10 18h3v1h-3zM14 18h1v1h-1zM16 18h3v1h-3zM21 18h1v1h-1zM23 18h1v1h-1zM25 18h1v1h-1zM29 18h2v1h-2zM32 18h1v1h-1zM34 18h2v1h-2zM4 19h2v1h-2zM9 19h1v1h-1zM11 19h2v1h-2zM20 19h1v1h-1zM22 19h5v1h-5zM28 19h3v1h-3zM32 19h3v1h-3zM4 20h4v1h-4zM9 20h2v1h-2zM12 20h1v1h-1zM15 20h1v1h-1zM21 20h1v1h-1zM23 20h1v1h-1zM27 20h1v1h-1zM29 20h1v1h-1zM31 20h2v1h-2zM36 20h1v1h-1zM5 21h1v1h-1zM7 21h3v1h-3zM11 21h2v1h-2zM15 21h3v1h-3zM20 21h5v1h-5zM27 21h1v1h-1zM29 21h3v1h-3zM33 21h2v1h-2zM36 21h1v1h-1zM4 22h2v1h-2zM9 22h4v1h-4zM16 22h1v1h-1zM19 22h3v1h-3zM26 22h1v1h-1zM29 22h4v1h-4zM34 22h1v1h-1zM7 23h1v1h-1zM11 23h1v1h-1zM13 23h2v1h-2zM17 23h2v1h-2zM21 23h2v1h-2zM24 23h1v1h-1zM27 23h8v1h-8zM5 24h6v1h-6zM16 24h2v1h-2zM19 24h2v1h-2zM24 24h3v1h-3zM28 24h1v1h-1zM31 24h3v1h-3zM35 24h1v1h-1zM4 25h2v1h-2zM7 25h1v1h-1zM11 25h2v1h-2zM14 25h1v1h-1zM19 25h1v1h-1zM21 25h2v1h-2zM27 25h1v1h-1zM29 25h2v1h-2zM33 25h2v1h-2zM36 25h1v1h-1zM4 26h1v1h-1zM6 26h1v1h-1zM8 26h1v1h-1zM10 26h1v1h-1zM12 26h2v1h-2zM15 26h2v1h-2zM19 26h2v1h-2zM22 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM30 26h2v1h-2zM33 26h3v1h-3zM4 27h1v1h-1zM6 27h3v1h-3zM11 27h2v1h-2zM14 27h2v1h-2zM17 27h3v1h-3zM25 27h1v1h-1zM28 27h2v1h-2zM32 27h3v1h-3zM36 27h1v1h-1zM4 28h1v1h-1zM7 28h4v1h-4zM12 28h4v1h-4zM17 28h1v1h-1zM19 28h1v1h-1zM21 28h1v1h-1zM24 28h1v1h-1zM26 28h1v1h-1zM28 28h6v1h-6zM35 28h2v1h-2zM12 29h1v1h-1zM15 29h3v1h-3zM19 29h2v1h-2zM22 29h4v1h-4zM27 29h2v1h-2zM32 29h1v1h-1zM34 29h3v1h-3zM4 30h7v1h-7zM13 30h1v1h-1zM15 30h3v1h-3zM19 30h2v1h-2zM22 30h1v1h-1zM24 30h2v1h-2zM27 30h2v1h-2zM30 30h1v1h-1zM32 30h1v1h-1zM34 30h2v1h-2zM4 31h1v1h-1zM10 31h1v1h-1zM12 31h1v1h-1zM16 31h2v1h-2zM20 31h1v1h-1zM25 31h4v1h-4zM32 31h4v1h-4zM4 32h1v1h-1zM6 32h3v1h-3zM10 32h1v1h-1zM12 32h1v1h-1zM22 32h2v1h-2zM25 32h1v1h-1zM28 32h6v1h-6zM36 32h1v1h-1zM4 33h1v1h-1zM6 33h3v1h-3zM10 33h1v1h-1zM12 33h4v1h-4zM19 33h3v1h-3zM24 33h6v1h-6zM32 33h1v1h-1zM34 33h1v1h-1zM36 33h1v1h-1zM4 34h1v1h-1zM6 34h3v1h-3zM10 34h1v1h-1zM12 34h7v1h-7zM21 34h1v1h-1zM23 34h1v1h-1zM26 34h6v1h-6zM34 34h1v1h-1zM4 35h1v1h-1zM10 35h1v1h-1zM13 35h6v1h-6zM20 35h1v1h-1zM23 35h5v1h-5zM29 35h2v1h-2zM32 35h3v1h-3zM4 36h7v1h-7zM12 36h1v1h-1zM16 36h3v1h-3zM21 36h3v1h-3zM26 36h6v1h-6zM35 36h1v1h-1z"/></svg><!--/QR:pitch--></a>
+  <a class="cap mono" href="https://yussfv1.github.io/Commit-Deploy/?pitch" style="left:120px;top:762px">yussfv1.github.io/Commit-Deploy/?pitch</a>
+  <figure class="frame" style="left:830px;top:166px;border-radius:8px 0 0 8px;--w:1090px;--h:757px;--sx:389;--sy:0;--sw:1659"><img src="assets/screens/04-blind.png" alt="Уровень 4 «Слепой робот»"></figure>
+  <p class="note" style="left:830px;top:944px">Уровень 4 «Слепой робот»</p>
+</section>
+
+<!-- 7 · План демо (запасной) · тот же отрезок -->
+<section class="slide" id="s7">
+  <h1 class="h" data-head style="left:120px;top:96px">Датчик, копия, телеметрия — и ракета ушла</h1>
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <path d="M278 440H1642" stroke="#3ec1ff" stroke-width="12" stroke-linecap="round"/>
+    <g fill="none" stroke="#09111b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M446 434l6 6-6 6"/><path d="M787 434l6 6-6 6"/><path d="M1128 434l6 6-6 6"/><path d="M1469 434l6 6-6 6"/>
+    </g>
+    <g fill="#09111b" stroke="#3ec1ff" stroke-width="8">
+      <circle cx="278" cy="440" r="18"/><circle cx="619" cy="440" r="18"/><circle cx="960" cy="440" r="18"/>
+      <circle cx="1301" cy="440" r="18"/><circle cx="1642" cy="440" r="18"/>
+    </g>
+  </svg>
+  <p class="lbl c" style="left:278px;top:372px;font-size:26px">Промахи вслепую</p>
+  <p class="lbl c" style="left:619px;top:372px;font-size:26px">Ставим датчик</p>
+  <p class="lbl c" style="left:960px;top:372px;font-size:26px">Копия робота (R)</p>
+  <p class="lbl c" style="left:1301px;top:372px;font-size:26px">Телеметрия: узкое место</p>
+  <p class="lbl c" style="left:1642px;top:372px;font-size:26px">Старт ракеты</p>
+  <figure class="frame" style="left:120px;top:486px;--w:316px;--h:316px;--sx:640;--sy:0;--sw:720"><img src="assets/screens/04-blind.png" alt="Промахи вслепую"></figure>
+  <figure class="frame" style="left:461px;top:486px;--w:316px;--h:316px;--sx:1500;--sy:181;--sw:548"><img src="assets/screens/05-sensor.png" alt="Датчик перед ПОЛОЖИТЬ"></figure>
+  <figure class="frame" style="left:802px;top:486px;--w:316px;--h:316px;--sx:560;--sy:212;--sw:940"><img src="assets/screens/08-copy.png" alt="Копия со сдвигом"></figure>
+  <figure class="frame" style="left:1143px;top:486px;--w:316px;--h:316px;--sx:150;--sy:152;--sw:1000"><img src="assets/screens/07-telemetry.png" alt="Телеметрия"></figure>
+  <figure class="frame" style="left:1484px;top:486px;--w:316px;--h:316px;--sx:1000;--sy:150;--sw:640"><img src="assets/screens/09-launch.png" alt="Старт ракеты"></figure>
+</section>
+
+<!-- 8 · Как это устроено · 3:15–4:15 · Асмир -->
+<section class="slide" id="s8">
+  <h1 class="h" data-head style="left:120px;top:96px">Самое сложное — повторить показ тик в тик</h1>
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <path d="M180 512V500H990V512" fill="none" stroke="#5c6e86" stroke-width="2"/>
+    <path d="M180 560H990" stroke="#3ec1ff" stroke-width="12" stroke-linecap="round"/>
+    <path d="M1022 560H1232" stroke="#5c6e86" stroke-width="4" stroke-dasharray="1 13" stroke-linecap="round"/>
+    <g fill="none" stroke="#09111b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M312 554l6 6-6 6"/><path d="M582 554l6 6-6 6"/><path d="M852 554l6 6-6 6"/>
+    </g>
+    <g fill="#09111b" stroke="#3ec1ff" stroke-width="8">
+      <circle cx="180" cy="560" r="18"/><circle cx="450" cy="560" r="18"/><circle cx="720" cy="560" r="18"/><circle cx="990" cy="560" r="18"/>
+    </g>
+    <circle cx="1260" cy="560" r="18" fill="#09111b" stroke="#93a4ba" stroke-width="8"/>
+  </svg>
+  <p class="small c" style="left:585px;top:458px">TypeScript</p>
+  <p class="lbl c" style="left:180px;top:600px">Показ</p>
+  <p class="small c" style="left:180px;top:640px">копия мира</p>
+  <p class="lbl c" style="left:450px;top:600px">Программа</p>
+  <p class="lbl c" style="left:720px;top:600px">20 тиков/с</p>
+  <p class="lbl c" style="left:990px;top:600px">Снимок</p>
+  <p class="lbl c" style="left:1260px;top:600px">Phaser</p>
+  <p class="num" style="left:1393px;top:276px">211</p>
+  <p class="cap dim" style="left:1398px;top:404px">тестов</p>
+  <div class="rule" style="left:1398px;top:474px"></div>
+  <p class="num" style="left:1393px;top:500px">1,2 <span class="unit">мс</span></p>
+  <p class="cap dim" style="left:1398px;top:628px">кадр из 16,7</p>
+  <div class="rule" style="left:1398px;top:698px"></div>
+  <p class="num" style="left:1393px;top:724px">1,4 <span class="unit">МБ</span></p>
+  <p class="cap dim" style="left:1398px;top:852px">вся игра</p>
+</section>
+
+<!-- 9 · Что получилось и что нет · 4:15–4:45 · Жалгасхан -->
+<section class="slide" id="s9">
+  <h1 class="h" data-head style="left:120px;top:96px">Честно: что работает и что нет</h1>
+  <svg class="ov" viewBox="0 0 1920 1080" aria-hidden="true">
+    <path d="M134 475V635" stroke="#5cc98d" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#5cc98d"><circle cx="134" cy="475" r="11"/><circle cx="134" cy="555" r="11"/><circle cx="134" cy="635" r="11"/></g>
+    <path d="M986 475V715" stroke="#f0574d" stroke-width="6" stroke-linecap="round"/>
+    <g fill="#f0574d"><circle cx="986" cy="475" r="11"/><circle cx="986" cy="555" r="11"/><circle cx="986" cy="635" r="11"/><circle cx="986" cy="715" r="11"/></g>
+  </svg>
+  <p class="col" style="left:120px;top:356px">Работает</p>
+  <p class="col" style="left:972px;top:356px">Не успели</p>
+  <p class="it" style="left:168px;top:452px"><b>6</b> уровней</p>
+  <p class="it" style="left:168px;top:532px"><b>10</b> минут стресс-теста без ошибок</p>
+  <p class="it" style="left:168px;top:612px"><b>120</b> кадров/с</p>
+  <p class="it" style="left:1020px;top:452px">столкновения роботов</p>
+  <p class="it" style="left:1020px;top:532px">музыку</p>
+  <p class="it" style="left:1020px;top:612px">замер на Windows</p>
+  <p class="it" style="left:1020px;top:692px">замеры плейтеста</p>
+</section>
+
+<!-- 10 · Чему научились и что дальше · 4:45–5:00 · Жалгасхан -->
+<section class="slide" id="s10">
+  <h1 class="h" data-head style="left:120px;top:96px">Обратная связь сильнее расписания</h1>
+  <p class="col" style="left:120px;top:232px">Научились</p>
+  <p class="it" style="left:120px;top:290px">договариваться через общий контракт кода</p>
+  <p class="it" style="left:120px;top:340px">доказывать «работает» тестом, а не словами</p>
+  <p class="col" style="left:972px;top:232px">Дальше</p>
+  <p class="it" style="left:972px;top:290px">казахский язык</p>
+  <p class="it" style="left:972px;top:340px">условия в блоках: «если — то»</p>
+  <p class="it" style="left:972px;top:390px">редактор уровней</p>
+  <div class="rule"></div>
+  <p class="who" style="left:120px;top:528px"><b>Асмир</b> — симуляция и сборка</p>
+  <p class="who" style="left:120px;top:576px"><b>Жалгасхан</b> — экран, управление и звук</p>
+  <p class="who" style="left:120px;top:624px"><b>Ерсултан</b> — уровни, логотип и защита, капитан</p>
+  <p class="note" style="left:120px;top:690px">Часть кода, тестов и текстов писал Claude Code по нашим задачам</p>
+  <p class="small" style="left:972px;top:520px">Игра</p>
+  <a class="lnk" href="https://yussfv1.github.io/Commit-Deploy/" style="left:972px;top:551px">yussfv1.github.io/Commit-Deploy</a>
+  <p class="small" style="left:972px;top:604px">Код</p>
+  <a class="lnk" href="https://github.com/yussfv1/Commit-Deploy" style="left:972px;top:635px">github.com/yussfv1/Commit-Deploy</a>
+  <p class="small" style="left:972px;top:688px">Telegram капитана</p>
+  <a class="lnk" href="https://t.me/smq1r" style="left:972px;top:719px">@smq1r</a>
+  <a class="qr" href="https://yussfv1.github.io/Commit-Deploy/" style="left:1541px;top:520px;width:259px;height:259px"><!--QR:game--><svg class="qr-svg" viewBox="0 0 37 37" role="img" aria-label="QR: https://yussfv1.github.io/Commit-Deploy/"><rect width="37" height="37" rx="0.8" fill="#e6edf5"/><path fill="#09111b" d="M4 4h7v1h-7zM14 4h6v1h-6zM21 4h4v1h-4zM26 4h7v1h-7zM4 5h1v1h-1zM10 5h1v1h-1zM12 5h4v1h-4zM17 5h3v1h-3zM22 5h2v1h-2zM26 5h1v1h-1zM32 5h1v1h-1zM4 6h1v1h-1zM6 6h3v1h-3zM10 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h3v1h-3zM26 6h1v1h-1zM28 6h3v1h-3zM32 6h1v1h-1zM4 7h1v1h-1zM6 7h3v1h-3zM10 7h1v1h-1zM13 7h3v1h-3zM18 7h3v1h-3zM22 7h2v1h-2zM26 7h1v1h-1zM28 7h3v1h-3zM32 7h1v1h-1zM4 8h1v1h-1zM6 8h3v1h-3zM10 8h1v1h-1zM12 8h1v1h-1zM14 8h6v1h-6zM21 8h3v1h-3zM26 8h1v1h-1zM28 8h3v1h-3zM32 8h1v1h-1zM4 9h1v1h-1zM10 9h1v1h-1zM13 9h1v1h-1zM15 9h2v1h-2zM18 9h4v1h-4zM23 9h2v1h-2zM26 9h1v1h-1zM32 9h1v1h-1zM4 10h7v1h-7zM12 10h1v1h-1zM14 10h1v1h-1zM16 10h1v1h-1zM18 10h1v1h-1zM20 10h1v1h-1zM22 10h1v1h-1zM24 10h1v1h-1zM26 10h7v1h-7zM14 11h1v1h-1zM17 11h8v1h-8zM4 12h1v1h-1zM6 12h1v1h-1zM8 12h1v1h-1zM10 12h1v1h-1zM13 12h2v1h-2zM17 12h1v1h-1zM20 12h2v1h-2zM28 12h1v1h-1zM31 12h1v1h-1zM4 13h1v1h-1zM6 13h1v1h-1zM9 13h1v1h-1zM12 13h1v1h-1zM14 13h1v1h-1zM16 13h1v1h-1zM18 13h1v1h-1zM20 13h1v1h-1zM24 13h3v1h-3zM29 13h1v1h-1zM32 13h1v1h-1zM4 14h5v1h-5zM10 14h1v1h-1zM12 14h2v1h-2zM16 14h1v1h-1zM18 14h1v1h-1zM20 14h2v1h-2zM24 14h4v1h-4zM30 14h3v1h-3zM6 15h1v1h-1zM8 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM16 15h8v1h-8zM25 15h3v1h-3zM31 15h1v1h-1zM5 16h1v1h-1zM7 16h2v1h-2zM10 16h1v1h-1zM12 16h1v1h-1zM14 16h1v1h-1zM16 16h3v1h-3zM20 16h8v1h-8zM29 16h1v1h-1zM31 16h2v1h-2zM4 17h1v1h-1zM6 17h1v1h-1zM11 17h3v1h-3zM16 17h1v1h-1zM19 17h2v1h-2zM24 17h1v1h-1zM26 17h1v1h-1zM29 17h1v1h-1zM32 17h1v1h-1zM4 18h4v1h-4zM10 18h1v1h-1zM12 18h4v1h-4zM17 18h1v1h-1zM21 18h1v1h-1zM24 18h4v1h-4zM29 18h1v1h-1zM31 18h2v1h-2zM4 19h1v1h-1zM6 19h1v1h-1zM9 19h1v1h-1zM11 19h1v1h-1zM13 19h15v1h-15zM29 19h1v1h-1zM31 19h1v1h-1zM5 20h3v1h-3zM10 20h1v1h-1zM15 20h1v1h-1zM18 20h3v1h-3zM26 20h2v1h-2zM29 20h1v1h-1zM31 20h2v1h-2zM5 21h2v1h-2zM12 21h1v1h-1zM14 21h3v1h-3zM21 21h1v1h-1zM24 21h1v1h-1zM26 21h1v1h-1zM29 21h2v1h-2zM32 21h1v1h-1zM4 22h1v1h-1zM7 22h1v1h-1zM10 22h4v1h-4zM16 22h2v1h-2zM20 22h3v1h-3zM26 22h3v1h-3zM31 22h2v1h-2zM5 23h3v1h-3zM11 23h2v1h-2zM14 23h1v1h-1zM19 23h5v1h-5zM29 23h1v1h-1zM31 23h1v1h-1zM4 24h1v1h-1zM6 24h6v1h-6zM14 24h1v1h-1zM21 24h1v1h-1zM23 24h6v1h-6zM12 25h2v1h-2zM16 25h2v1h-2zM20 25h1v1h-1zM23 25h2v1h-2zM28 25h1v1h-1zM30 25h3v1h-3zM4 26h7v1h-7zM13 26h1v1h-1zM16 26h1v1h-1zM18 26h1v1h-1zM21 26h1v1h-1zM23 26h2v1h-2zM26 26h1v1h-1zM28 26h2v1h-2zM31 26h2v1h-2zM4 27h1v1h-1zM10 27h1v1h-1zM13 27h1v1h-1zM15 27h5v1h-5zM21 27h2v1h-2zM24 27h1v1h-1zM28 27h2v1h-2zM31 27h1v1h-1zM4 28h1v1h-1zM6 28h3v1h-3zM10 28h1v1h-1zM12 28h2v1h-2zM18 28h4v1h-4zM24 28h5v1h-5zM4 29h1v1h-1zM6 29h3v1h-3zM10 29h1v1h-1zM13 29h1v1h-1zM15 29h4v1h-4zM20 29h1v1h-1zM24 29h2v1h-2zM28 29h1v1h-1zM30 29h3v1h-3zM4 30h1v1h-1zM6 30h3v1h-3zM10 30h1v1h-1zM12 30h3v1h-3zM23 30h2v1h-2zM27 30h3v1h-3zM32 30h1v1h-1zM4 31h1v1h-1zM10 31h1v1h-1zM15 31h2v1h-2zM18 31h7v1h-7zM26 31h1v1h-1zM31 31h1v1h-1zM4 32h7v1h-7zM12 32h2v1h-2zM16 32h6v1h-6zM23 32h2v1h-2zM29 32h1v1h-1zM31 32h2v1h-2z"/></svg><!--/QR:game--></a>
+</section>
+
+<script>
+// Линия метро внизу каждого слайда: 10 станций; пройденные — залитые, текущая — оранжевая
+// (белая там, где оранжевый уже занят главным элементом слайда: «&» логотипа, T−3:00, ракета).
+document.querySelectorAll('.slide').forEach((s, cur) => {
+  const n = 10, x0 = 120, x1 = 1800, y = 30, step = (x1 - x0) / (n - 1), xc = x0 + step * cur;
+  const white = s.dataset.nav === 'white', col = white ? '#e6edf5' : '#ff7a2f';
+  let g = `<path d="M${x0} ${y}H${xc}" stroke="#5c6e86" stroke-width="2"/>`;
+  if (cur < n - 1) g += `<path d="M${xc} ${y}H${x1}" stroke="#1f3048" stroke-width="2"/>`;
+  for (let k = 0; k < n; k++) {
+    const x = x0 + step * k;
+    if (k < cur) g += `<circle cx="${x}" cy="${y}" r="6" fill="#5c6e86"/>`;
+    if (k > cur) g += `<circle cx="${x}" cy="${y}" r="6" fill="#09111b" stroke="#5c6e86" stroke-width="2"/>`;
+  }
+  g += `<g ${white ? '' : 'data-accent="nav"'}><circle cx="${xc}" cy="${y}" r="13" fill="none" stroke="${col}" stroke-width="2"/>` +
+       `<circle cx="${xc}" cy="${y}" r="7" fill="${col}"/></g>`;
+  s.insertAdjacentHTML('beforeend', `<svg class="nav" width="1920" height="60" viewBox="0 0 1920 60" aria-hidden="true">${g}</svg>`);
+});
+// Неразрывные пробелы: после коротких слов, между числом и единицей, перед тире.
+(() => {
+  const SHORT = 'в|во|на|с|со|к|ко|у|о|об|от|до|по|за|из|без|для|при|про|над|под|и|а|но|не|ни|что|как|или|ты|он|мы|их|это|из-за';
+  const re = new RegExp(`(^|[\\s\\u00a0«„(])(${SHORT}) `, 'giu');
+  const fix = (t) => { let p; do { p = t; t = t.replace(re, (m, a, w) => a + w + ' '); } while (t !== p);
+    return t.replace(/(\d) (?=[^\s\d·])/g, '$1 ').replace(/ ([—–]) /g, ' $1 '); };
+  document.querySelectorAll('.slide :is(p, h1)').forEach((el) => {
+    if (el.matches('.mono, .plate')) return;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) if (!n.parentElement.closest('.need, a.mono')) n.nodeValue = fix(n.nodeValue);
+  });
+})();
+</script>
+</body>
+</html>
