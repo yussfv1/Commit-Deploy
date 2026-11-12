@@ -37,7 +37,8 @@ export class PauseScene extends Phaser.Scene {
     const w = PANEL_W - PAD * 2;
     const row = (i: number): number => top + first + i * STEP;
     const item = { w, h: ROW_H, size: SIZE.body, alignLeft: true, iconTint: true, depth: d + 2 };
-    // Подписей клавиш тут нет: Esc, R и M перечислены в главном меню, а сами клавиши работают как раньше.
+    // Подписей клавиш тут нет. В паузе Esc, Пробел и Enter — продолжить, R — начать заново, M — к уровням
+    // (в игре R — копия робота: это и Esc с Tab перечислены в главном меню).
     new Button(this, W / 2, row(0), { ...item, label: t('pause.resume'), icon: iconKey('play'), kind: 'primary', onClick: () => this.resume() });
     new Button(this, W / 2, row(1), { ...item, label: t('pause.restart'), icon: iconKey('restart'), onClick: () => this.restart() });
     new Button(this, W / 2, row(2), { ...item, label: t('pause.settings'), icon: iconKey('gear'), onClick: () => this.settings() });
