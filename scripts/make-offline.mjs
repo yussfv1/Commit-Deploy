@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = resolve(process.argv[2] ?? join(repo, 'build/web/index.html'));
-const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2' };
+const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.ttf': 'font/ttf' };
 
 execSync('npm run build', { cwd: repo, stdio: 'inherit' });
 const dist = join(repo, 'dist');
@@ -21,7 +21,7 @@ let js = readFileSync(join(dist, 'assets', tag[1]), 'utf8');
 
 // Картинки, звуки и шрифт из сборки — внутрь кода как data: адреса (по file:// их иначе не загрузить).
 let inlined = 0;
-js = js.replace(/new URL\((["'`])([\w.-]+\.(?:png|wav|mp3|woff2))\1,\s*import\.meta\.url\)/g, (whole, _q, file) => {
+js = js.replace(/new URL\((["'`])([\w.-]+\.(?:png|wav|mp3|woff2|ttf))\1,\s*import\.meta\.url\)/g, (whole, _q, file) => {
   const path = join(dist, 'assets', file);
   if (!existsSync(path)) return whole;
   inlined++;
