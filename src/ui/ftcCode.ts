@@ -4,7 +4,7 @@
 //   ВЗЯТЬ/ПОЛОЖИТЬ → bot.grab() / bot.release()                 — захват;
 //   ДАТЧИК         → while (!bot.machineReady()) idle();         — ждём по датчику, а не по таймеру;
 //   ЖДАТЬ ×N       → sleep(N × 250 мс)                           — один шаг в игре длится 0,25 секунды.
-// TMinusBot — класс-обёртка над моторами, захватом и датчиком: у каждой команды он свой, здесь — только вызовы.
+// DeployBot — класс-обёртка над моторами, захватом и датчиком: у каждой команды он свой, здесь — только вызовы.
 import type { Block, Op } from '../types';
 
 /** Сколько миллисекунд длится один шаг робота в игре (5 тиков по 50 мс). */
@@ -65,17 +65,17 @@ export function toFtcJava(program: readonly Block[], info: FtcCodeInfo): string[
     '',
     'import com.qualcomm.robotcore.eventloop.opmode.Autonomous;',
     'import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;',
-    'import static org.firstinspires.ftc.teamcode.TMinusBot.Dir.*;',
+    'import static org.firstinspires.ftc.teamcode.DeployBot.Dir.*;',
     '',
-    `// T-MINUS: робот ${info.robot}, док ${info.dock}. Этот код получился из твоего показа.`,
+    `// Commit & Deploy: робот ${info.robot}, док ${info.dock}. Этот код получился из твоего показа.`,
     usesSensor
       ? '// ДАТЧИК — обратная связь: робот ждёт готовую машину, а не считает секунды.'
       : '// Без датчика робот действует «вслепую»: только по времени.',
-    `@Autonomous(name = "T-MINUS Robot ${info.robot}")`,
-    `public class TMinusRobot${info.robot} extends LinearOpMode {`,
+    `@Autonomous(name = "Commit & Deploy Robot ${info.robot}")`,
+    `public class CommitDeployRobot${info.robot} extends LinearOpMode {`,
     '    @Override',
     '    public void runOpMode() {',
-    '        TMinusBot bot = new TMinusBot(hardwareMap);   // моторы, захват, датчик',
+    '        DeployBot bot = new DeployBot(hardwareMap);   // моторы, захват, датчик',
     '        waitForStart();',
     '        while (opModeIsActive()) {                    // показ повторяется по кругу',
     ...bodyLines(program),

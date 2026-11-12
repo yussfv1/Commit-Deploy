@@ -7,8 +7,8 @@ describe('код для настоящего робота (FTC, Java)', () => {
 
   it('это настоящий OpMode: класс, waitForStart и цикл по кругу', () => {
     const lines = code('L T R4 P L3');
-    expect(lines).toContain('public class TMinusRobot2 extends LinearOpMode {');
-    expect(lines).toContain('@Autonomous(name = "T-MINUS Robot 2")');
+    expect(lines).toContain('public class CommitDeployRobot2 extends LinearOpMode {');
+    expect(lines).toContain('@Autonomous(name = "Commit & Deploy Robot 2")');
     expect(lines.some((l) => l.includes('waitForStart();'))).toBe(true);
     expect(lines.some((l) => l.includes('while (opModeIsActive())'))).toBe(true);
     // Скобки сбалансированы — файл можно открыть в Android Studio.
