@@ -1,9 +1,9 @@
 {
-  "name": "t-minus",
+  "name": "commit-and-deploy",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "T-MINUS «Покажи один раз» — 2D-игра про автоматизацию (GAMBIT Hackathon 2026, трек AUTOMATE IT!)",
+  "description": "Commit & Deploy «Покажи один раз» — 2D-игра про автоматизацию (GAMBIT Hackathon 2026, трек AUTOMATE IT!)",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -30,12 +30,13 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLOR.page);
 
     if (this.textures.exists(iconKey('logo'))) {
-      const logo = this.add.image(X0, 112, iconKey('logo')).setOrigin(0, 0);
-      logo.setScale(Math.min(400 / logo.width, 96 / logo.height));
+      // Логотип в две строки (COMMIT & / DEPLOY): поле 400 × 120, низ на y = 188 — до подзаголовка 24, как было.
+      const logo = this.add.image(X0, 68, iconKey('logo')).setOrigin(0, 0);
+      logo.setScale(Math.min(400 / logo.width, 120 / logo.height));
       // Буквы логотипа светлые: в светлой теме печатаем его цветом текста, как штамп.
       if (THEME === 'light') logo.setTint(COLOR.text);
     } else {
-      txt(this, X0 - 4, 108, 'T-MINUS', { size: SIZE.display + 8, bold: true });
+      txt(this, X0 - 4, 68, 'COMMIT &\nDEPLOY', { size: SIZE.display - 8, bold: true, lineSpacing: -4 });
     }
     txt(this, X0, 212, t('menu.subtitle'), { size: SIZE.title, color: COLOR.text });
     txt(this, X0, 248, t('menu.tagline'), { size: SIZE.body, color: COLOR.dim, wrap: 400, lineSpacing: 4 });
