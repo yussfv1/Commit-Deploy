@@ -6,8 +6,12 @@ import { H, W } from '../render/layout';
 import { audio } from './audio';
 import { COLOR, FONT, MONO, RADIUS, SIZE, WEIGHT, css, darken, rgba } from './theme';
 
-/** Чёткость текста равна масштабу отрисовки: буквы рисуются пиксель в пиксель и не мылятся. */
-export const textRes = (): number => Math.min(2, Math.max(1, getRenderScale()));
+/**
+ * Чёткость текста равна масштабу отрисовки: буквы рисуются пиксель в пиксель и не мылятся.
+ * Раньше снизу стояло ограничение 1: в окне меньше 1280×720 (ноутбук 1366×768 с панелями браузера)
+ * буквы рисовались крупнее, а потом уменьшались камерой — и мылились. Теперь и в маленьком окне 1:1.
+ */
+export const textRes = (): number => Math.min(2, Math.max(0.5, getRenderScale()));
 
 export interface TextOpts {
   size?: number;

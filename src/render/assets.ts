@@ -41,10 +41,14 @@ export const ICON_FILES = [
 /** Звуки: public/assets/sfx/<имя>.wav или .mp3 (если лежат оба — берём WAV). */
 const SFX_EXT = ['wav', 'mp3'] as const;
 const FONT_FAMILY = 'TMinus';
-/** Шрифт роли C: сначала ищем WOFF2, потом TTF. Сейчас лежит Nunito (OFL) в TTF с осью толщины 200…1000. */
-const FONT_FILES = ['fonts/main.woff2', 'fonts/main.ttf'] as const;
-/** Переменный шрифт отдаёт любую толщину из диапазона: так «жирный» в игре — настоящий, а не дорисованный браузером. */
-const FONT_WEIGHTS = '200 1000';
+/**
+ * Шрифт роли C — PT Sans (OFL), тот же, что в презентации. Обычное и жирное начертание — отдельные файлы:
+ * так «жирный» в игре настоящий, а не дорисованный браузером. Для каждого сначала ищем WOFF2, потом TTF.
+ */
+const FONT_FACES = [
+  { weight: '400', files: ['fonts/main.woff2', 'fonts/main.ttf'] },
+  { weight: '700', files: ['fonts/main-bold.woff2', 'fonts/main-bold.ttf'] },
+] as const;
 const TIMEOUT_MS = 8000;
 
 /**
@@ -133,20 +137,27 @@ async function loadMusic(name: string): Promise<void> {
  * Ждём загрузку не дольше полутора секунд: дальше игра идёт на системном шрифте.
  */
 async function loadFont(): Promise<void> {
-  const url = FONT_FILES.map((f) => assetUrl(f)).find((u) => u !== null) ?? null;
-  if (!url || typeof document === 'undefined' || !document.fonts || typeof FontFace === 'undefined') return;
-  try {
-    const face = new FontFace(FONT_FAMILY, `url(${url})`, { weight: FONT_WEIGHTS });
-    const loaded = face
-      .load()
-      .then((f) => {
-        document.fonts.add(f);
-      })
-      .catch(() => undefined);
-    await Promise.race([loaded, new Promise<void>((resolve) => setTimeout(resolve, 1500))]);
-  } catch {
-    // Шрифт не подключился — останется системный.
+  if (typeof document === 'undefined' || !document.fonts || typeof FontFace === 'undefined') return;
+  const jobs: Promise<void>[] = [];
+  for (const { weight, files } of FONT_FACES) {
+    const url = files.map((f) => assetUrl(f)).find((u) => u !== null) ?? null;
+    if (!url) continue;
+    try {
+      const face = new FontFace(FONT_FAMILY, `url(${url})`, { weight });
+      jobs.push(
+        face
+          .load()
+          .then((f) => {
+            document.fonts.add(f);
+          })
+          .catch(() => undefined),
+      );
+    } catch {
+      // Это начертание не подключилось — останется системное.
+    }
   }
+  if (jobs.length === 0) return;
+  await Promise.race([Promise.all(jobs).then(() => undefined), new Promise<void>((resolve) => setTimeout(resolve, 1500))]);
 }
 
 /** Загрузить всё, что есть. progress получает долю готового от 0 до 1. Никогда не падает. */
