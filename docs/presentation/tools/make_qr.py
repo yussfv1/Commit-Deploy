@@ -8,8 +8,8 @@ import pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 QRS = {
-    'pitch': 'https://yussfv1.github.io/Commit-Deploy/?pitch',
-    'game': 'https://yussfv1.github.io/Commit-Deploy/',
+    'pitch': 'https://commit-deploy.vercel.app/?pitch',
+    'game': 'https://commit-deploy.vercel.app/',
 }
 QUIET = 4
 
