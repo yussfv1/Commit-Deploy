@@ -8,6 +8,7 @@ PT Sans Narrow и PT Mono встроены, ссылки и QR кликабел�
 | `presentation.html` | все 10 слайдов, каждый — `<section class="slide">` 1920 × 1080; текст правится прямо здесь |
 | `assets/screens/` | кадры игры 2048 × 1152 с холста, без монтажа; на слайде их кадрирует только CSS (`--sx`, `--sy`, `--sw`) |
 | `tools/build.mjs` | сборка PDF через Google Chrome и проверка вёрстки |
+| `tools/bundle.mjs` | показ с анимацией одним файлом `presentation-show.html` — для флешки и компьютера в зале |
 | `tools/make_qr.py`, `tools/qr_gen.swift` | QR-коды (библиотека Core Image, уровень M, тихая зона 4 модуля) |
 | `tools/pdf_render.swift`, `qr_decode.swift`, `pdf_text.swift` | проверки готового PDF на Mac |
 
@@ -29,6 +30,22 @@ node docs/presentation/tools/build.mjs
 
 На Windows: если Chrome стоит не в `C:\Program Files\Google\Chrome\Application`, укажите путь в переменной `CHROME`.
 Если в системе нет PT Sans, добавьте `--web-fonts`, и шрифты придут с Google Fonts.
+
+## Показ с анимацией
+
+Открыть `docs/presentation/presentation.html` в Chrome. F — во весь экран, → / пробел / кликер / клик — дальше,
+← — назад, Home / End — первый и последний слайд. Каждый слайд собирается заново: линии метро прорисовываются,
+станции появляются по ходу линии, текст поднимается, кадры игры открываются шторкой. Синий робот из игры (те же карты
+пикселей, что в `src/render/robotSprites.ts`) идёт по нижней линии к следующей станции и на каждом слайде делает своё:
+машет, несёт руду, ждёт с датчиком, прыгает. Все слайды подряд без анимации: `presentation.html?all`.
+
+```bash
+node docs/presentation/tools/bundle.mjs
+```
+
+Собирает `docs/presentation/presentation-show.html` (в git не кладётся): кадры и шрифты PT внутри файла, интернет
+не нужен — для флешки. В PDF анимации нет (PDF её не умеет), но у страниц есть переход «сдвиг» (`/Trans`): его
+показывает Adobe Acrobat в полноэкранном режиме (Ctrl+L). Робот в PDF стоит на текущей станции в своей позе.
 
 ## Проверки на Mac
 

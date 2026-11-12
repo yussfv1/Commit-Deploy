@@ -93,7 +93,8 @@ const AUDIT = String.raw`(() => {
     // наезды: текст × текст, текст × кадр/QR/логотип
     const boxes = texts.map((el) => ({ b: rel(el.getBoundingClientRect()), t: el.textContent.trim().slice(0, 24) }))
       .concat([...s.querySelectorAll(':scope > figure.frame, :scope > a.qr, :scope > svg.logo')]
-        .map((el) => ({ b: rel(el.getBoundingClientRect()), t: '[' + (el.tagName === 'svg' ? 'логотип' : el.className) + ']' })));
+        .map((el) => ({ b: rel(el.getBoundingClientRect()), t: '[' + (el.tagName === 'svg' ? 'логотип' : el.className) + ']' })))
+      .concat([...s.querySelectorAll(':scope > svg.nav .pet')].map((el) => ({ b: rel(el.getBoundingClientRect()), t: '[робот]' })));
     for (let a = 0; a < boxes.length; a++) for (let c = a + 1; c < boxes.length; c++)
       if (hit(boxes[a].b, boxes[c].b)) issues.push('наезжает: «' + boxes[a].t + '» × «' + boxes[c].t + '»');
     // кадры не должны залезать на линию метро внизу
@@ -116,10 +117,32 @@ const AUDIT = String.raw`(() => {
   return { slides: res, badImages: imgs.filter((x) => !x.ok), images: imgs.length, links };
 })()`;
 
+// Переходы между страницами (/Trans): их показывает Adobe Acrobat в полноэкранном режиме (Ctrl+L); другие
+// просмотрщики их просто не используют. Страницы не переписываются — новое описание страниц дописывается в конец
+// файла с собственной таблицей xref (обычное инкрементальное обновление PDF).
+function addTransitions(buf) {
+  const s = buf.toString('latin1');
+  const pages = [...s.matchAll(/(\d+) 0 obj\s*<<((?:(?!endobj)[\s\S])*?)>>\s*endobj/g)].filter((m) => /\/Type\s*\/Page(?![s\w])/.test(m[2]));
+  const prev = s.match(/startxref\s+(\d+)\s+%%EOF\s*$/);
+  const size = [...s.matchAll(/\/Size\s+(\d+)/g)].pop();
+  const root = s.match(/\/Root\s+(\d+ \d+ R)/), info = s.match(/\/Info\s+(\d+ \d+ R)/);
+  if (!pages.length || !prev || !size || !root || /\/Trans\s*<</.test(s)) return buf;
+  let out = s.endsWith('\n') ? s : s + '\n';
+  const offs = [];
+  for (const m of pages) {
+    offs.push([Number(m[1]), out.length]);
+    out += `${m[1]} 0 obj\n<<${m[2]} /Trans <</Type /Trans /S /Push /Di 180 /D 0.6>> >>\nendobj\n`;
+  }
+  const xref = out.length;
+  out += 'xref\n' + offs.sort((a, b) => a[0] - b[0]).map(([num, o]) => `${num} 1\n${String(o).padStart(10, '0')} 00000 n \n`).join('');
+  out += `trailer\n<</Size ${size[1]} /Root ${root[1]}${info ? ' /Info ' + info[1] : ''} /Prev ${prev[1]}>>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+
 function pdfFacts(buf) {
   const s = buf.toString('latin1');
   return {
-    pages: (s.match(/\/Type\s*\/Page(?![s\w])/g) || []).length,
+    pages: new Set([...s.matchAll(/(\d+) 0 obj\s*<<(?:(?!endobj)[\s\S])*?\/Type\s*\/Page(?![s\w])/g)].map((m) => m[1])).size,
     boxes: [...new Set([...s.matchAll(/\/MediaBox\s*\[\s*([-\d.\s]+)\]/g)].map((m) => m[1].trim().replace(/\s+/g, ' ')))],
     fonts: [...new Set([...s.matchAll(/\/BaseFont\s*\/([^\s/<>[\]()]+)/g)].map((m) => m[1]))],
     fontFiles: (s.match(/\/FontFile[23]?(?=[\s/<])/g) || []).length,
@@ -127,6 +150,7 @@ function pdfFacts(buf) {
     rects: [...s.matchAll(/\/Rect\s*\[([^\]]*)\]/g)].map((m) => m[1].trim().split(/\s+/).map((v) => Math.round(+v)).join(' ')),
     uris: [...new Set([...s.matchAll(/\/URI\s*\(([^)]*)\)/g)].map((m) => m[1]))],
     objStm: /\/ObjStm/.test(s),
+    trans: (s.match(/\/Trans\s*<</g) || []).length,
     title: (s.match(/\/Title\s*\(([^)]*)\)/) || s.match(/\/Title\s*<([0-9A-Fa-f]+)>/) || [])[1] ?? null,
   };
 }
@@ -198,11 +222,12 @@ try {
     marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0, printBackground: true, preferCSSPageSize: true,
     displayHeaderFooter: false });
   if (!pdf.result?.data) throw new Error('printToPDF: ' + JSON.stringify(pdf.error ?? pdf));
-  const buf = Buffer.from(pdf.result.data, 'base64');
+  const buf = addTransitions(Buffer.from(pdf.result.data, 'base64'));
   writeFileSync(OUT, buf);
   const f = pdfFacts(buf);
   console.log(`PDF: ${OUT}\n  ${(buf.length / 1048576).toFixed(2)} МиБ, страниц ${f.pages}, MediaBox ${f.boxes.join(' / ')}`);
   console.log(`  шрифты (${f.fonts.length}, встроенных файлов ${f.fontFiles}, Type3 ${f.type3}): ${f.fonts.join(', ')}`);
+  console.log(`  переходы страниц (/Trans): ${f.trans}`);
   console.log(`  области ссылок: ${f.rects.join(' | ')}`);
   console.log(`  ссылки: ${f.uris.join(' | ') || 'нет'}${f.objStm ? '  (есть ObjStm — часть объектов сжата)' : ''}`);
   if (f.pages !== 10) { console.log('  ✗ страниц не 10'); bad++; }
