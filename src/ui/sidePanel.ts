@@ -27,9 +27,13 @@ export interface PanelHandlers {
   toggleSense(): void;
   wait(delta: number): void;
   copy(): void;
+  /** Новый робот со своим маршрутом (то же, что клавиша N). */
+  newRoute(): void;
   rewrite(): void;
   removeRobot(): void;
   toggleCode(): void;
+  /** Окно «код для настоящего робота» (FTC, Java). */
+  ftcCode(): void;
   sell(): void;
 }
 
@@ -123,10 +127,13 @@ export class SidePanel {
       sense: make(at(1, 0), t('robot.sense'), () => handlers.toggleSense()),
       waitLess: make(at(0, 1), t('robot.waitLess'), () => handlers.wait(-1)),
       waitMore: make(at(1, 1), t('robot.waitMore'), () => handlers.wait(1)),
-      copy: make(at(0, 2, true), t('robot.copy'), () => handlers.copy()),
+      // Рядом два способа добавить робота: копия той же петли (R) и новый робот со своим маршрутом (N).
+      copy: make(at(0, 2), t('robot.copy'), () => handlers.copy()),
+      route: make(at(1, 2), t('robot.route'), () => handlers.newRoute()),
       rewrite: make(at(0, 3), t('robot.rewrite'), () => handlers.rewrite()),
       dismiss: make(at(1, 3), t('robot.dismiss'), () => handlers.removeRobot(), 'danger'),
-      code: make(at(0, 4, true), t('robot.code'), () => handlers.toggleCode()),
+      code: make(at(0, 4), t('robot.code'), () => handlers.toggleCode()),
+      ftc: make(at(1, 4), t('robot.ftc'), () => handlers.ftcCode()),
     };
     this.sellButton = make(at(0, 4, true), t('machine.sell'), () => handlers.sell(), 'danger');
   }
@@ -135,9 +142,9 @@ export class SidePanel {
    * Центр и размер кнопки, которую подсвечивает обучение. «Датчик» — только когда его можно нажать.
    * «Копия» в показе — кнопка копии в панели показа, иначе — на панели робота.
    */
-  anchor(id: 'finish' | 'copy' | 'sense'): { x: number; y: number; w: number; h: number } | null {
+  anchor(id: 'finish' | 'copy' | 'route' | 'sense'): { x: number; y: number; w: number; h: number } | null {
     const copy = this.teachCopy.root.visible ? this.teachCopy : this.robotButtons.copy;
-    const b = id === 'finish' ? this.finish : id === 'copy' ? copy : this.robotButtons.sense;
+    const b = id === 'finish' ? this.finish : id === 'copy' ? copy : id === 'route' ? this.robotButtons.route : this.robotButtons.sense;
     if (!b.root.visible || (id === 'sense' && !b.isEnabled())) return null;
     return { x: b.x, y: b.y, w: b.w, h: b.h };
   }
@@ -257,6 +264,7 @@ export class SidePanel {
     b.waitLess.setEnabled(canChangeWait(picked, -1));
     b.waitMore.setEnabled(canChangeWait(picked, 1));
     b.copy.setEnabled(snap.energyLeft >= snap.robotCost + (r.hasSensor ? this.level.sensorCost : 0));
+    b.route.setEnabled(snap.energyLeft >= snap.robotCost);
     b.code.setActive(state.code);
   }
 

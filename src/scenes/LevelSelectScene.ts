@@ -189,7 +189,8 @@ export class LevelSelectScene extends Phaser.Scene {
 
   private bestText(level: LevelData, record: ReturnType<typeof store.record>): string {
     if (!record) return t('levels.bestNone');
-    if (level.endless) return t('levels.launches', { n: record.launches });
-    return t('levels.bestStars', { n: record.stars, time: clock(record.timeLeft) });
+    const best = level.endless ? t('levels.launches', { n: record.launches }) : t('levels.bestStars', { n: record.stars, time: clock(record.timeLeft) });
+    // Think Award за этот уровень — рядом с лучшим результатом.
+    return store.hasAward(level.id) ? `${best} · ${t('award.title')}` : best;
   }
 }

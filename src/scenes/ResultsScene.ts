@@ -32,11 +32,22 @@ export interface ResultsData {
   bottleneckKey: string | null;
   /** Третье поражение подряд — спросить «Вам нужна подсказка?». */
   offerHint?: boolean;
+  /** Think Award: игрок открыл телеметрию во время работы линии, исправил её на ходу и прошёл уровень. */
+  thinkAward: boolean;
 }
 
 const PANEL_W = 600;
 const PAD = 32;
 const HINT_W = 520;
+
+/** Что подсказать про третью звезду: не хватило скорости — совет этого уровня (или общий), не хватило экономии — общий. */
+function starTipKey(r: ResultsData): string {
+  if (!r.starTimeOk) {
+    const own = `stars.tip.${r.levelId}`;
+    return i18n.has(own) ? own : 'stars.tip.time';
+  }
+  return 'stars.tip.energy';
+}
 
 export class ResultsScene extends Phaser.Scene {
   /** Всё, что лежит в окне подсказки: его убирают целиком при закрытии. */
@@ -57,7 +68,24 @@ export class ResultsScene extends Phaser.Scene {
     dimmer(this, d);
     const level = levelById(r.levelId);
     const next = r.won ? nextLevel(r.levelId) : null;
-    const panelH = 340;
+    const passed = r.won || (r.endless && r.launches > 0);
+    // Подсказка, как взять третью звезду (уровень пройден, но звёзд меньше трёх), и строка Think Award.
+    // Тексты создаются заранее: окно растёт под их высоту.
+    const tip =
+      r.won && !r.endless && r.stars < 3
+        ? txt(this, 0, 0, t(starTipKey(r)), { size: SIZE.small, color: COLOR.warn, wrap: PANEL_W - PAD * 2, lineSpacing: 3 }).setDepth(d + 2)
+        : null;
+    const award = passed
+      ? txt(this, 0, 0, t(r.thinkAward ? 'award.got' : 'award.how'), {
+          size: SIZE.small,
+          color: r.thinkAward ? COLOR.text : COLOR.dim,
+          wrap: PANEL_W - PAD * 2 - 60,
+          lineSpacing: 3,
+        }).setDepth(d + 2)
+      : null;
+    const tipH = tip ? 22 + tip.height + 14 : 0;
+    const awardH = award ? Math.max(44, 24 + award.height) + 14 : 0;
+    const panelH = 348 + tipH + awardH;
     const top = Math.round(H / 2 - panelH / 2);
     const left = W / 2 - PANEL_W / 2;
     const x = left + PAD;
@@ -105,6 +133,22 @@ export class ResultsScene extends Phaser.Scene {
     }
     rule(this, x, y, PANEL_W - PAD * 2).setDepth(d + 2);
     txt(this, x, y + 16, t('results.misses', { n: r.misses }), { size: SIZE.small, color: COLOR.dim }).setDepth(d + 2);
+    let ey = y + 52;
+    if (tip) {
+      txt(this, x, ey, t('stars.tipLabel'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d + 2);
+      tip.setPosition(x, ey + 20);
+      ey += tipH;
+    }
+    if (award) {
+      // Медаль яркая, если награда получена; бледная — если нет, а текст рядом объясняет, как её заработать.
+      this.add.image(x + 22, ey + 22, iconKey('award')).setDisplaySize(44, 44).setAlpha(r.thinkAward ? 1 : 0.35).setDepth(d + 2);
+      txt(this, x + 60, ey, t(r.thinkAward ? 'award.title' : 'award.titleLocked'), {
+        size: SIZE.body,
+        bold: true,
+        color: r.thinkAward ? COLOR.warn : COLOR.dim,
+      }).setDepth(d + 2);
+      award.setPosition(x + 60, ey + 24);
+    }
 
     const by = top + panelH - 48;
     const retry = (): void => this.go('Game', { levelId: r.levelId });

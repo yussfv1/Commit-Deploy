@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { installDisplay } from './render/display';
 import { H, W } from './render/layout';
 import { BootScene } from './scenes/BootScene';
+import { CodeScene } from './scenes/CodeScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { GameScene } from './scenes/GameScene';
 import { LevelSelectScene } from './scenes/LevelSelectScene';
@@ -29,7 +30,7 @@ const game = new Phaser.Game({
   disableContextMenu: true,
   banner: false,
   // Порядок важен: сцены ниже по списку рисуются поверх (пауза, итоги и настройки — поверх игры).
-  scene: [BootScene, MenuScene, LevelSelectScene, CreditsScene, GameScene, PauseScene, ResultsScene, SettingsScene],
+  scene: [BootScene, MenuScene, LevelSelectScene, CreditsScene, GameScene, PauseScene, ResultsScene, CodeScene, SettingsScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => installDisplay(game));

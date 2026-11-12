@@ -179,6 +179,16 @@ const ICONS: Record<string, (ctx: Ctx) => void> = {
     disc(ctx, 42, 32, 7, '#ffffff');
     disc(ctx, 44, 32, 3.2, css(COLOR.ink));
   },
+  /** Think Award: медаль на двух лентах, в медали — лампочка («придумал, измерил, исправил»). */
+  award(ctx) {
+    poly(ctx, [[17, 4], [29, 4], [35, 27], [25, 31]], css(COLOR.info), css(darken(COLOR.info, 0.5)), 2);
+    poly(ctx, [[47, 4], [35, 4], [29, 27], [39, 31]], css(COLOR.accent), css(darken(COLOR.accent, 0.5)), 2);
+    const gold = darken(COLOR.warn, 0.5);
+    disc(ctx, 32, 41, 19, css(COLOR.warn), css(gold));
+    disc(ctx, 32, 41, 13.5, null, css(darken(COLOR.warn, 0.3)), 1.5);
+    disc(ctx, 32, 38, 6.2, '#fff6d2', css(gold), 1.6);
+    box(ctx, 29, 44, 6, 5, 1, css(gold));
+  },
   sensor(ctx) {
     const y = css(COLOR.warn);
     ctx.beginPath();

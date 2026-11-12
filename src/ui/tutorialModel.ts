@@ -8,7 +8,8 @@
 //   tutorial.returnDock     вернись на док
 //   tutorial.finish         нажми «Готово»
 //   tutorial.copy           сделай копию робота со сдвигом (клавиша R или кнопка на панели робота)
-//   tutorial.secondRobot    поставь второго робота на свободный док (в показе — стрелка на пресс)
+//   tutorial.secondRobot    поставь робота со своим маршрутом: кнопка «Свой путь (N)» или свободный док
+//                           (копии на R не считаются — у них тот же маршрут; в показе — стрелка на пресс)
 //   tutorial.start          нажми СТАРТ
 //   tutorial.waitPress      в репетиции у работающего пресса с пустыми руками: дождись готовой пластины (Пробел)
 //   tutorial.sensor         после первого промаха: поставь ДАТЧИК (промах на «положить» — текст tutorial.sensorPut)
@@ -57,7 +58,7 @@ export interface TutorialCtx {
   picked?: Op | null;
 }
 
-export type UiTarget = 'finish' | 'copy' | 'start' | 'telemetry' | 'sense';
+export type UiTarget = 'finish' | 'copy' | 'route' | 'start' | 'telemetry' | 'sense';
 export type Target =
   | { kind: 'cell'; x: number; y: number }
   | { kind: 'ui'; id: UiTarget }
@@ -113,6 +114,11 @@ function freeDock(ctx: TutorialCtx): number {
   return ctx.level.docks.findIndex((_, i) => !ctx.snap.robots.some((r) => r.dock === i));
 }
 
+/** Сколько разных маршрутов у роботов: копии со сдвигом ходят той же программой и считаются одним. */
+export function routeCount(s: SimSnapshot): number {
+  return new Set(s.robots.map((r) => JSON.stringify(r.pendingProgram ?? r.program))).size;
+}
+
 const started = (s: SimSnapshot): boolean => s.mode === 'running' || s.mode === 'won' || s.mode === 'lost';
 
 function done(step: Step, ctx: TutorialCtx): boolean {
@@ -134,7 +140,8 @@ function done(step: Step, ctx: TutorialCtx): boolean {
       // Копия встаёт на тот же док со сдвигом по времени. Нет энергии на второго робота — шаг пропускаем.
       return s.robots.length >= 2 || s.energyLeft < s.robotCost || started(s);
     case 'secondRobot':
-      return (s.mode !== 'teach' && s.robots.length >= 2) || started(s);
+      // Нужен второй маршрут, а не вторая копия: копия со сдвигом ходит той же петлёй.
+      return (s.mode !== 'teach' && routeCount(s) >= 2) || started(s);
     case 'start':
       return started(s);
     case 'waitPress':
@@ -232,9 +239,10 @@ export class TutorialFlow {
       case 'returnDock':
         return s.operator ? cellOf(ctx.level.docks[s.operator.dock]) : null;
       case 'secondRobot':
-        // В показе — на пресс (там ждать пластину), иначе — на свободный док.
+        // В показе — на пресс (там ждать пластину), иначе — на кнопку «Свой путь (N)»;
+        // если панели робота не видно, экран покажет стрелкой на свободный док.
         if (s.mode === 'teach') return cellOf(s.machines.find((m) => m.type === 'press'));
-        return cellOf(ctx.level.docks[freeDock(ctx)]);
+        return { kind: 'ui', id: 'route' };
       case 'finish':
       case 'copy':
       case 'start':
