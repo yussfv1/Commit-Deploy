@@ -8,6 +8,7 @@
 // Ракурсы: down (лицом к нам), up (спиной), side (вправо; влево — тот же кадр, отражённый по горизонтали).
 import Phaser from 'phaser';
 import { css, darken, lighten } from '../ui/theme';
+import { paintedCanvas } from './canvas';
 
 /** Размер кадра в пикселях рисунка. */
 export const ROBOT_PX = 16;
@@ -194,27 +195,28 @@ export function robotSheet(scene: Phaser.Scene, color: number): string {
   const key = `rsheet_${css(color).slice(1)}`;
   if (scene.textures.exists(key)) return key;
   const fw = ROBOT_PX * P;
-  const tex = scene.textures.createCanvas(key, fw * ROBOT_FRAMES.length, fw * VIEWS.length);
-  if (!tex) return '__DEFAULT';
-  const ctx = tex.getContext();
   const pal = palette(color);
-  VIEWS.forEach((view, row) => {
-    ROBOT_FRAMES.forEach((frame, col) => {
-      const grid = composeFrame(view, frame);
-      const ox = col * fw;
-      const oy = row * fw;
-      for (let y = 0; y < ROBOT_PX; y++) {
-        for (let x = 0; x < ROBOT_PX; x++) {
-          const ch = grid[y][x];
-          if (ch === '.') continue;
-          ctx.fillStyle = pal[ch] ?? '#ff00ff';
-          ctx.fillRect(ox + x * P, oy + y * P, P, P);
+  // Кадры рисуем на холсте заранее и отдаём Phaser готовый лист (см. paintedCanvas в render/canvas.ts).
+  const canvas = paintedCanvas(fw * ROBOT_FRAMES.length, fw * VIEWS.length, (ctx) => {
+    VIEWS.forEach((view, row) => {
+      ROBOT_FRAMES.forEach((frame, col) => {
+        const grid = composeFrame(view, frame);
+        for (let y = 0; y < ROBOT_PX; y++) {
+          for (let x = 0; x < ROBOT_PX; x++) {
+            const ch = grid[y][x];
+            if (ch === '.') continue;
+            ctx.fillStyle = pal[ch] ?? '#ff00ff';
+            ctx.fillRect(col * fw + x * P, row * fw + y * P, P, P);
+          }
         }
-      }
-      tex.add(robotFrameName(view, frame), 0, ox, oy, fw, fw);
+      });
     });
   });
-  tex.refresh();
+  const tex = canvas ? scene.textures.addCanvas(key, canvas) : null;
+  if (!tex) return '__DEFAULT';
+  VIEWS.forEach((view, row) => {
+    ROBOT_FRAMES.forEach((frame, col) => tex.add(robotFrameName(view, frame), 0, col * fw, row * fw, fw, fw));
+  });
   tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
   return key;
 }

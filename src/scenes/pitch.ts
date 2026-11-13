@@ -26,11 +26,17 @@ export const isPitchRun = (): boolean => {
 /** Уровень демо — четвёртый в списке, «Слепой робот»: пресс работает то быстро, то медленно, и есть ДАТЧИК. */
 export const pitchLevel = (all: readonly LevelData[]): LevelData | null => all[3] ?? null;
 
+/** Готовое демо: кого ведущий будет править и мир в момент «Старт» (для «Заново с роботами»). */
+export interface PitchSetup {
+  robot: number;
+  startSave: string;
+}
+
 /**
  * Поставить линию, запустить отсчёт и прожить несколько секунд.
- * Возвращает id слепого робота (его ведущий будет править) или null, если программы не подходят к карте.
+ * Возвращает слепого робота (его ведущий будет править) и мир на момент старта или null, если программы не подходят к карте.
  */
-export function preparePitch(sim: Simulation): number | null {
+export function preparePitch(sim: Simulation): PitchSetup | null {
   const ids: number[] = [];
   for (const [text, dock] of PITCH_LINE) {
     if (!sim.beginTeach(dock).ok) return null;
@@ -44,7 +50,8 @@ export function preparePitch(sim: Simulation): number | null {
     }
     ids.push(made.id);
   }
+  const startSave = sim.serialize();
   sim.start();
   for (let i = 0; i < WARMUP_SECONDS * 20; i++) sim.step(0.05);
-  return ids[0];
+  return { robot: ids[0], startSave };
 }

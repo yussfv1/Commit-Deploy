@@ -11,6 +11,7 @@ import { MenuScene } from './scenes/MenuScene';
 import { PauseScene } from './scenes/PauseScene';
 import { ResultsScene } from './scenes/ResultsScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { audio } from './ui/audio';
 import { COLOR, css } from './ui/theme';
 
 // Фон страницы вокруг холста — в цвет выбранной темы (в index.html стоит тёмный по умолчанию).
@@ -29,6 +30,11 @@ const game = new Phaser.Game({
   audio: { noAudio: true },
   disableContextMenu: true,
   banner: false,
+  // Эффекты Phaser (свечение, тени, размытие на объектах) в игре не нужны. Без этого флага Phaser при старте
+  // заводит под них 66 квадратных буферов (до 704×704) — около 46 МБ видеопамяти на встроенной графике,
+  // а Firefox на 15 из них пишет предупреждения WebGL «lazy initialization».
+  disablePreFX: true,
+  disablePostFX: true,
   // Порядок важен: сцены ниже по списку рисуются поверх (пауза, итоги и настройки — поверх игры).
   scene: [BootScene, MenuScene, LevelSelectScene, CreditsScene, GameScene, PauseScene, ResultsScene, CodeScene, SettingsScene],
 });
@@ -36,4 +42,4 @@ const game = new Phaser.Game({
 game.events.once(Phaser.Core.Events.READY, () => installDisplay(game));
 
 // Только в режиме разработки: доступ к игре из консоли браузера. В сборку для жюри этот код не попадает.
-if (import.meta.env.DEV) (window as unknown as { __tminus?: unknown }).__tminus = { game };
+if (import.meta.env.DEV) (window as unknown as { __tminus?: unknown }).__tminus = { game, audio };

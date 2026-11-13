@@ -7,6 +7,7 @@ import { clock, i18n, t } from '../ui/i18n';
 import { levelById, levelIndex, nextLevel } from '../ui/levels';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, dimmer, plate, rule, txt } from '../ui/widgets';
+import type { Replay } from '../ui/replay';
 import { enter } from './flow';
 
 export interface ResultsData {
@@ -30,6 +31,10 @@ export interface ResultsData {
   best: boolean;
   /** Ключ совета «что тормозило», уже подобранный под уровень (или null). */
   bottleneckKey: string | null;
+  /** Готовый текст причины, если линия встала (взаимная блокировка и т. п.), — важнее совета узкого места. */
+  cause?: string | null;
+  /** Мир на момент «Старт» и программы роботов — для кнопки «Заново с роботами» (null — линию не запускали). */
+  replay?: Replay | null;
   /** Третье поражение подряд — спросить «Вам нужна подсказка?». */
   offerHint?: boolean;
   /** Think Award: игрок открыл телеметрию во время работы линии, исправил её на ходу и прошёл уровень. */
@@ -83,9 +88,15 @@ export class ResultsScene extends Phaser.Scene {
           lineSpacing: 3,
         }).setDepth(d + 2)
       : null;
+    // Что тормозило (после поражения и в бесконечном уровне): готовая причина аварии или совет узкого места.
+    const causeStr = r.won && !r.endless ? null : (r.cause ?? (r.bottleneckKey ? t(r.bottleneckKey) : null));
+    const cause = causeStr ? txt(this, 0, 0, causeStr, { size: SIZE.body, color: COLOR.warn, wrap: PANEL_W - PAD * 2 }).setDepth(d + 2) : null;
+    // Под причину отведено две строки; длинная (авария) раздвигает окно и отступает от черты под ней.
+    const causeExtra = cause ? Math.max(0, Math.ceil(cause.height) - 44) : 0;
+    const causeH = causeExtra > 0 ? causeExtra + 12 : 0;
     const tipH = tip ? 22 + tip.height + 14 : 0;
     const awardH = award ? Math.max(44, 24 + award.height) + 14 : 0;
-    const panelH = 348 + tipH + awardH;
+    const panelH = 348 + tipH + awardH + causeH;
     const top = Math.round(H / 2 - panelH / 2);
     const left = W / 2 - PANEL_W / 2;
     const x = left + PAD;
@@ -125,11 +136,11 @@ export class ResultsScene extends Phaser.Scene {
         color: COLOR.text,
       }).setDepth(d + 2);
       y += 32;
-      if (r.bottleneckKey) {
+      if (cause) {
         txt(this, x, y, t('results.cause'), { size: SIZE.micro, color: COLOR.faint, caps: true }).setDepth(d + 2);
-        txt(this, x, y + 20, t(r.bottleneckKey), { size: SIZE.body, color: COLOR.warn, wrap: PANEL_W - PAD * 2 }).setDepth(d + 2);
+        cause.setPosition(x, y + 20);
       }
-      y += 64;
+      y += 64 + causeH;
     }
     rule(this, x, y, PANEL_W - PAD * 2).setDepth(d + 2);
     txt(this, x, y + 16, t('results.misses', { n: r.misses }), { size: SIZE.small, color: COLOR.dim }).setDepth(d + 2);
@@ -151,18 +162,27 @@ export class ResultsScene extends Phaser.Scene {
     }
 
     const by = top + panelH - 48;
-    const retry = (): void => this.go('Game', { levelId: r.levelId });
+    const right = left + PANEL_W - PAD;
+    // «Заново с роботами»: время сначала, роботы и их программы те же — исправил и проверил ещё раз.
+    // Если линию не запускали (нечего сохранять), «Заново» начинает уровень с нуля, как раньше.
+    const fresh = (): void => this.go('Game', { levelId: r.levelId });
+    const replay = r.replay ?? null;
+    const retry = replay ? (): void => this.go('Game', { levelId: r.levelId, replay }) : fresh;
+    const retryLabel = t(replay ? 'results.retryRobots' : 'results.retry');
     const toLevels = (): void => this.go('LevelSelect', { levelId: next?.id ?? r.levelId });
     const toNext = (): void => {
       if (next) this.go('Game', { levelId: next.id });
     };
     if (next) {
-      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.next'), kind: 'primary', size: SIZE.body, depth: d + 2, onClick: toNext });
-      new Button(this, left + PANEL_W - PAD - 180 - 12 - 70, by, { w: 140, h: 44, label: t('results.retry'), depth: d + 2, onClick: retry });
+      new Button(this, right - 90, by, { w: 180, h: 44, label: t('results.next'), kind: 'primary', size: SIZE.body, depth: d + 2, onClick: toNext });
+      const rw = replay ? 196 : 140;
+      new Button(this, right - 180 - 12 - rw / 2, by, { w: rw, h: 44, label: retryLabel, depth: d + 2, onClick: retry });
     } else {
-      new Button(this, left + PANEL_W - PAD - 90, by, { w: 180, h: 44, label: t('results.retry'), kind: 'primary', size: SIZE.body, depth: d + 2, onClick: retry });
+      const rw = replay ? 210 : 180;
+      new Button(this, right - rw / 2, by, { w: rw, h: 44, label: retryLabel, kind: 'primary', size: SIZE.body, depth: d + 2, onClick: retry });
+      if (replay) new Button(this, right - rw - 12 - 60, by, { w: 120, h: 44, label: t('results.fresh'), kind: 'quiet', depth: d + 2, onClick: fresh });
     }
-    new Button(this, x + 70, by, { w: 140, h: 44, label: t('results.levels'), kind: 'quiet', depth: d + 2, onClick: toLevels });
+    new Button(this, x + 65, by, { w: 130, h: 44, label: t('results.levels'), kind: 'quiet', depth: d + 2, onClick: toLevels });
 
     this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
       if (ev.repeat) return;

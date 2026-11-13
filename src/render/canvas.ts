@@ -24,6 +24,21 @@ export function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, 
   ctx.closePath();
 }
 
+/**
+ * Холст нужного размера, на котором уже нарисована картинка. Phaser получает его готовым (addCanvas):
+ * textures.createCanvas сначала отправил бы в видеокарту пустой холст, и Firefox на каждый такой
+ * пишет предупреждение WebGL «incurring lazy initialization».
+ */
+export function paintedCanvas(width: number, height: number, paint: (ctx: Ctx) => void): HTMLCanvasElement | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.ceil(width));
+  canvas.height = Math.max(1, Math.ceil(height));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  paint(ctx);
+  return canvas;
+}
+
 /** Нарисовать текстуру под ключом key. w и h — логические пиксели. Старая текстура с этим ключом заменяется. */
 export function drawTexture(
   scene: Phaser.Scene,
@@ -35,14 +50,13 @@ export function drawTexture(
 ): void {
   const textures = scene.textures;
   if (textures.exists(key)) textures.remove(key);
-  const tex = textures.createCanvas(key, Math.max(1, Math.ceil(w * density)), Math.max(1, Math.ceil(h * density)));
-  if (!tex) return;
-  const ctx = tex.getContext();
-  ctx.save();
-  ctx.scale(density, density);
-  draw(ctx, w, h);
-  ctx.restore();
-  tex.refresh();
+  const canvas = paintedCanvas(w * density, h * density, (ctx) => {
+    ctx.save();
+    ctx.scale(density, density);
+    draw(ctx, w, h);
+    ctx.restore();
+  });
+  if (canvas) textures.addCanvas(key, canvas);
 }
 
 /** То же, но только если текстуры ещё нет. Возвращает ключ. */
@@ -73,6 +87,8 @@ export class CanvasLayer {
   private readonly w: number;
   private readonly h: number;
   private key = '';
+  /** Текстура прошлой плотности: убираем её, когда новая уже нарисована и стоит на картинке. */
+  private old = '';
   private density = 0;
   /** Сколько раз «плотнее» этот слой виден на экране, чем сцена (например, уменьшенная карта в меню). */
   private readonly zoom: number;
@@ -110,28 +126,40 @@ export class CanvasLayer {
   draw(fn: Draw): void {
     const density = this.wantedDensity();
     if (density !== this.density || !this.key) this.recreate(density);
-    const tex = this.scene.textures.get(this.key) as Phaser.Textures.CanvasTexture;
-    const ctx = tex.getContext();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, tex.width, tex.height);
-    ctx.setTransform(density, 0, 0, density, 0, 0);
-    fn(ctx, this.w, this.h);
-    tex.refresh();
+    const textures = this.scene.textures;
+    if (textures.exists(this.key)) {
+      const tex = textures.get(this.key) as Phaser.Textures.CanvasTexture;
+      const ctx = tex.getContext();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, tex.width, tex.height);
+      ctx.setTransform(density, 0, 0, density, 0, 0);
+      fn(ctx, this.w, this.h);
+      tex.refresh();
+      return;
+    }
+    // Первый рисунок с этой плотностью: холст отдаём Phaser уже нарисованным (см. paintedCanvas).
+    const canvas = paintedCanvas(this.w * density, this.h * density, (ctx) => {
+      ctx.setTransform(density, 0, 0, density, 0, 0);
+      fn(ctx, this.w, this.h);
+    });
+    if (!canvas) return;
+    textures.addCanvas(this.key, canvas);
+    this.image.setTexture(this.key).setDisplaySize(this.w, this.h);
+    if (this.old && this.old !== this.key && textures.exists(this.old)) textures.remove(this.old);
+    this.old = '';
   }
 
   destroy(): void {
-    if (this.key && this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
+    for (const k of [this.key, this.old]) if (k && this.scene.textures.exists(k)) this.scene.textures.remove(k);
     this.key = '';
+    this.old = '';
   }
 
+  /** Новая плотность: новый ключ текстуры. Саму текстуру создаст первый draw(), старую он же и уберёт. */
   private recreate(density: number): void {
-    const old = this.key;
+    if (this.key && this.key !== `${this.base}@${density}`) this.old = this.key;
     this.density = density;
     this.key = `${this.base}@${density}`;
-    if (!this.scene.textures.exists(this.key)) {
-      this.scene.textures.createCanvas(this.key, Math.max(1, Math.ceil(this.w * density)), Math.max(1, Math.ceil(this.h * density)));
-    }
-    this.image.setTexture(this.key).setDisplaySize(this.w, this.h);
-    if (old && old !== this.key && this.scene.textures.exists(old)) this.scene.textures.remove(old);
+    if (this.scene.textures.exists(this.key)) this.image.setTexture(this.key).setDisplaySize(this.w, this.h);
   }
 }

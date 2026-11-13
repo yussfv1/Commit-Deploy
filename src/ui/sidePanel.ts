@@ -63,6 +63,8 @@ const NOTE_ROOM = 12 + 36 + 12;
 const LINE_H = 20;
 /** Сколько строк ленты блоков (по 32 px) и строк кода помещается над кнопками вместе с пометкой. */
 const STRIP_ROWS = Math.floor((BUTTONS_TOP - NOTE_ROOM - LIST_Y + 4) / 32);
+/** Верх кнопок показа («Копия», «Отменить», «Готово» — три нижних ряда): подсказка показа не заходит ниже. */
+const TEACH_BUTTONS_TOP = BOTTOM - 16 - 2 * ROW_STEP - BUTTON_H / 2;
 const CODE_LINES = Math.floor((BUTTONS_TOP - NOTE_ROOM - LIST_Y) / LINE_H);
 
 export class SidePanel {
@@ -214,10 +216,22 @@ export class SidePanel {
     this.strip.set(snap.recording, snap.recording.length - 1, -1, COLOR.teach);
     const stripBottom = LIST_Y + this.strip.visibleHeight;
     this.body.setY(stripBottom + 16).setVisible(true);
-    setText(this.body, t('teach.keys'));
     this.finish.setEnabled(snap.canFinishTeach);
-    this.note.setY(this.body.y + this.body.height + 12).setVisible(!snap.canFinishTeach && snap.recording.length > 0);
+    const noteOn = !snap.canFinishTeach && snap.recording.length > 0;
     setText(this.note, t('teach.returnHint'));
+    // Подсказка про клавиши и мышь. Длинная запись программы занимает место — тогда подсказка короче,
+    // а если и короткая не влезает над кнопками показа, её прячем: блоки и «Вернись на док» важнее.
+    const room = TEACH_BUTTONS_TOP - 8 - (noteOn ? this.note.height + 12 : 0);
+    let hint = '';
+    for (const key of ['teach.keysMouse', 'teach.keys']) {
+      setText(this.body, t(key));
+      if (this.body.y + this.body.height <= room) {
+        hint = key;
+        break;
+      }
+    }
+    if (!hint) setText(this.body, '');
+    this.note.setY(this.body.y + (hint ? this.body.height + 12 : 0)).setVisible(noteOn);
   }
 
   private showRobot(snap: SimSnapshot, r: RobotView, state: PanelState): void {
