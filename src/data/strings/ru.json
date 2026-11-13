@@ -59,7 +59,7 @@
   "credits.toolsTitle": "Инструменты",
   "credits.tools": "Phaser 3.90 (MIT), TypeScript, Vite, Vitest. С кодом помогал ИИ-ассистент Claude.",
   "credits.assetsTitle": "Графика и звук",
-  "credits.assets": "Нарисованы и синтезированы кодом, шрифт — PT Sans (SIL OFL 1.1). Сторонние файлы и их лицензии перечислены в third_party.md.",
+  "credits.assets": "Графика нарисована кодом, звуки и музыка синтезированы кодом. Шрифт — CD Sans, изменённый PT Sans (ParaType, SIL OFL 1.1). Сторонние файлы и их лицензии перечислены в third_party.md.",
   "credits.inspirationTitle": "Вдохновение",
   "credits.inspiration": "The Last Clockwinder, The Farmer Was Replaced, игры Zachtronics.",
   "credits.back": "Назад",
