@@ -8,6 +8,7 @@ import { levelById, levelIndex, nextLevel } from '../ui/levels';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, dimmer, plate, rule, txt } from '../ui/widgets';
 import type { Replay } from '../ui/replay';
+import { onKeyDown } from '../ui/keys';
 import { enter } from './flow';
 
 export interface ResultsData {
@@ -184,7 +185,7 @@ export class ResultsScene extends Phaser.Scene {
     }
     new Button(this, x + 65, by, { w: 130, h: 44, label: t('results.levels'), kind: 'quiet', depth: d + 2, onClick: toLevels });
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (this.modalKey) {
         this.modalKey(ev);

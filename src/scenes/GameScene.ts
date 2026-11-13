@@ -45,6 +45,7 @@ import type { TutorialAnchors } from '../ui/tutorialOverlay';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { MissInfo, TutorialCtx } from '../ui/tutorialModel';
 import { Toasts, plate, setText, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 import { preparePitch } from './pitch';
 import { STRESS_ID, deployStress, stressLevel } from './stress';
@@ -274,7 +275,7 @@ export class GameScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointerDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => this.onKey(ev));
+    onKeyDown(this, (ev: KeyboardEvent) => this.onKey(ev));
     // Tab не должен уводить фокус из игры.
     this.input.keyboard?.addCapture('TAB,SPACE,UP,DOWN,LEFT,RIGHT');
     audio.music('shift');

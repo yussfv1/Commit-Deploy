@@ -10,6 +10,7 @@ import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, rule, setColor, setText, txt } from '../ui/widgets';
 import type { LevelData } from '../types';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 
 const X0 = 88;
@@ -112,7 +113,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const firstOpen = all.findIndex((l) => store.record(l.id) === null);
     this.select(fromId >= 0 ? fromId : runId >= 0 ? runId : Math.max(0, firstOpen));
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (leaving(this)) return;
       if (ev.code === 'ArrowLeft' || ev.code === 'KeyA') this.select(this.selected - 1, true);
       else if (ev.code === 'ArrowRight' || ev.code === 'KeyD') this.select(this.selected + 1, true);

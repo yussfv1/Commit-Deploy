@@ -10,6 +10,7 @@ import { levels } from '../ui/levels';
 import { store } from '../ui/storage';
 import { COLOR, SIZE, THEME } from '../ui/theme';
 import { Button, keyHint, rule, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 
 const X0 = 88;
@@ -107,7 +108,7 @@ export class MenuScene extends Phaser.Scene {
       onClick: () => this.scale.toggleFullscreen(),
     });
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (leaving(this) || ev.repeat) return;
       if (ev.code === 'Enter' || ev.code === 'NumpadEnter') play();
     });

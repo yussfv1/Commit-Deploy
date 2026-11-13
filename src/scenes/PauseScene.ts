@@ -7,6 +7,7 @@ import { t } from '../ui/i18n';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, dimmer, plate, txt } from '../ui/widgets';
 import type { Replay } from '../ui/replay';
+import { onKeyDown } from '../ui/keys';
 import { enter } from './flow';
 
 const PANEL_W = 360;
@@ -52,7 +53,7 @@ export class PauseScene extends Phaser.Scene {
     new Button(this, W / 2, row(i++), { ...item, label: t('pause.settings'), icon: iconKey('gear'), onClick: () => this.settings() });
     new Button(this, W / 2, row(i++), { ...item, label: t('pause.exit'), icon: iconKey('levels'), onClick: () => this.exit() });
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.code === 'Escape' || ev.code === 'Space' || ev.code === 'Enter') this.resume();
       else if (ev.code === 'KeyR') this.restart();

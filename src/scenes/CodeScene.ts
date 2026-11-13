@@ -7,6 +7,7 @@ import { DEPTH, H, W } from '../render/layout';
 import { t } from '../ui/i18n';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, dimmer, plate, setColor, setText, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter } from './flow';
 
 const PANEL_W = 860;
@@ -120,7 +121,7 @@ export class CodeScene extends Phaser.Scene {
     new Button(this, left + PANEL_W - PAD - 160 - 12 - 90, by, { w: 180, h: 44, label: t('ftc.copy'), size: SIZE.body, depth: d + 2, onClick: () => void copy() });
 
     this.input.keyboard?.addCapture('TAB');
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (ev.code === 'Escape' || ev.code === 'Enter' || ev.code === 'NumpadEnter') close();
       else if (ev.code === 'ArrowDown') scrollBy(LINE_H * 3);
       else if (ev.code === 'ArrowUp') scrollBy(-LINE_H * 3);

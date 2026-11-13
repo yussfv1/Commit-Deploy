@@ -5,6 +5,7 @@ import { audio } from '../ui/audio';
 import { t } from '../ui/i18n';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, rule, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 
 const X0 = 88;
@@ -57,7 +58,7 @@ export class CreditsScene extends Phaser.Scene {
     });
     txt(this, W - X0, H - 44, t('menu.event'), { size: SIZE.micro, color: COLOR.faint, caps: true, ox: 1, oy: 0.5 });
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (leaving(this) || ev.repeat) return;
       if (ev.code === 'Escape' || ev.code === 'Enter' || ev.code === 'NumpadEnter') go(this, 'Menu');
     });
