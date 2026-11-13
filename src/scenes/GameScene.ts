@@ -1,41 +1,55 @@
 // Игровая сцена. Логики мира здесь нет: сцена принимает ввод игрока, вызывает методы ISimulation
 // и рисует sim.snapshot(). Время мира идёт только через sim.step(dt × скорость).
+// Отдельные части экрана живут в своих модулях: обучение (ui/tutorialOverlay), авария «линия встала»
+// (ui/stallAlarm), сохранение и «Заново с роботами» (ui/runKeeper), покупка машин (ui/buyMode),
+// показ роботу клавишами и мышью (ui/teachMode), финал со стартом ракеты (render/launchSequence).
+// Сцена связывает их с симуляцией и между собой.
 import Phaser from 'phaser';
 import { Simulation } from '../sim';
 import { OPERATOR_ID, TILE } from '../types';
-import type { Block, FailReason, LevelData, MachineType, SimEvent, SimSnapshot, TeachInput } from '../types';
+import type { Block, FailReason, LevelData, SimEvent, SimSnapshot } from '../types';
 import { getRenderScale } from '../render/display';
 import { FieldView } from '../render/field';
 import type { HighlightKind } from '../render/field';
+import { LaunchSequence } from '../render/launchSequence';
 import type { LoopSpec } from '../render/loopLayer';
 import { BOTTOM, DEPTH, FIELD, PANEL, STRIP, TOP_H, fieldFit } from '../render/layout';
 import { laneOffset } from '../render/robotPose';
-import { iconKey, tileKey } from '../render/textures';
 import { audio, stepRate } from '../ui/audio';
 import type { SfxName } from '../ui/audio';
 import { BottomBar } from '../ui/bottomBar';
+import { BuyMode } from '../ui/buyMode';
 import { FieldStrip } from '../ui/fieldStrip';
 import { FrameStats } from '../ui/frameStats';
 import { hints } from '../ui/hints';
 import { num, t } from '../ui/i18n';
 import { levelById, levelIndex, levels, machineDefs } from '../ui/levels';
 import { changeWait, programSteps, removeBlock, toggleSense } from '../ui/programModel';
+import type { Replay } from '../ui/replay';
 import { RobotNumbers } from '../ui/robotNumbers';
+import { RunKeeper } from '../ui/runKeeper';
+import type { RunStart } from '../ui/runKeeper';
 import { SidePanel } from '../ui/sidePanel';
 import type { PanelView } from '../ui/sidePanel';
+import { StallAlarm } from '../ui/stallAlarm';
 import { store } from '../ui/storage';
+import { TEACH_KEYS, TeachMode } from '../ui/teachMode';
 import { COLOR, SIZE, robotColor } from '../ui/theme';
 import { TopBar } from '../ui/topBar';
 import type { Speed } from '../ui/topBar';
 import { TelemetryPanel } from '../ui/telemetryPanel';
 import { bottleneckHintKey, bottleneckSpot } from '../ui/telemetryModel';
-import { toFtcJava } from '../ui/ftcCode';
+import { deployBotJava, toFtcJava } from '../ui/ftcCode';
+import { TutorialOverlay } from '../ui/tutorialOverlay';
+import type { TutorialAnchors } from '../ui/tutorialOverlay';
 import { TutorialFlow } from '../ui/tutorialModel';
 import type { MissInfo, TutorialCtx } from '../ui/tutorialModel';
-import { Toasts, plate, plateKey, setColor, setText, txt } from '../ui/widgets';
+import { Toasts, plate, setText, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 import { preparePitch } from './pitch';
 import { STRESS_ID, deployStress, stressLevel } from './stress';
+import type { CodeData } from './CodeScene';
 import type { ResultsData } from './ResultsScene';
 
 /** Если в уровне нет своего обучения, первый уровень ведёт игрока этим маршрутом (как в брифе роли B). */
@@ -50,19 +64,6 @@ const FIRST_LEVEL_TUTORIAL = [
   'tutorial.start',
 ];
 
-const KEY_INPUT: Record<string, TeachInput> = {
-  ArrowUp: 'up',
-  KeyW: 'up',
-  ArrowRight: 'right',
-  KeyD: 'right',
-  ArrowDown: 'down',
-  KeyS: 'down',
-  ArrowLeft: 'left',
-  KeyA: 'left',
-  KeyE: 'act',
-  Space: 'wait',
-};
-
 const EVENT_SOUND: Partial<Record<SimEvent['type'], SfxName>> = {
   took: 'take',
   put: 'put',
@@ -76,8 +77,14 @@ const EVENT_SOUND: Partial<Record<SimEvent['type'], SfxName>> = {
   lost: 'lose',
 };
 
-/** Повтор шага при удержании стрелки — не чаще, чем оператор успевает дойти. */
-const REPEAT_MS = 130;
+/** Как часто сохранять незаконченный уровень, пока линия строится или работает. */
+const AUTOSAVE_MS = 5000;
+
+export interface GameData extends RunStart {
+  levelId?: string;
+  /** Демо для защиты (?pitch). */
+  pitch?: boolean;
+}
 
 export class GameScene extends Phaser.Scene {
   private sim!: Simulation;
@@ -92,39 +99,32 @@ export class GameScene extends Phaser.Scene {
   private view: PanelView = { kind: 'idle' };
   private pick = -1;
   private code = false;
-  private buyType: MachineType | null = null;
-  private ghost!: Phaser.GameObjects.Container;
+  private buy!: BuyMode;
+  /** Клетка карты под мышью (null — мышь не над картой): для призрака покупки и рамки показа. */
   private ghostCell: { x: number; y: number } | null = null;
   private tint!: Phaser.GameObjects.Rectangle;
   private banner!: Phaser.GameObjects.Container;
   /** Ширина плашки режима обучения в полосе над картой: легенда ужимается, чтобы не залезть под неё. */
   private bannerW = 0;
   private tutorial!: TutorialFlow;
-  private tutCard!: Phaser.GameObjects.Container;
-  private tutText!: Phaser.GameObjects.Text;
-  private tutBg!: Phaser.GameObjects.Image;
-  private tutArrow!: Phaser.GameObjects.Image;
+  private overlay!: TutorialOverlay;
   private telemetryOpen = false;
   /** Панель телеметрии создаётся при первом Tab: так вход в уровень быстрее на слабом ноутбуке. */
   private telemetry: TelemetryPanel | null = null;
   /** Последний снимок настоящего мира: во время показа верхняя полоса показывает его, а не часы копии. */
   private realSnap: SimSnapshot | null = null;
-  private tutFrame!: Phaser.GameObjects.Graphics;
   private fps!: Phaser.GameObjects.Text;
   private frames = new FrameStats();
   private fpsAt = 0;
   private ending: 'none' | 'launch' | 'done' = 'none';
+  private launch: LaunchSequence | null = null;
   private stars = 0;
-  private lastRepeat = 0;
   private pendingPath: { sig: string; spec: LoopSpec | null } = { sig: '', spec: null };
-  private countdown: Phaser.GameObjects.Text | null = null;
   private strip!: FieldStrip;
   /** Показать петлю только этого робота (кнопки над картой). null — все петли. */
   private solo: number | null = null;
-  /** Сколько копий со сдвигом поставить вместе с роботом, которого сейчас показывают (клавиша R в показе). */
-  private teachCopies = 0;
-  /** Идёт перезапись уже стоящего робота (а не показ нового). */
-  private teachReplace = false;
+  /** Показ роботу: клавиши, мышь, копии со сдвигом. */
+  private teachMode!: TeachMode;
   /** Номера роботов в подписях панели и телеметрии: самый маленький свободный, перезапись сохраняет номер. */
   private numbers = new RobotNumbers();
   /** Последний промах в настоящем мире — подсказка про датчик ведёт к этому роботу и этому действию. */
@@ -135,25 +135,30 @@ export class GameScene extends Phaser.Scene {
   private fixed = false;
   /** Сцена собрана: до этого (или если уровень не загрузился) update ничего не делает. */
   private ready = false;
+  /** Автосохранение («Продолжить») и мир в момент «Старт» («Заново с роботами»). */
+  private run!: RunKeeper;
+  /** Авария «линия встала»: карточка с причиной и выходом. */
+  private alarm!: StallAlarm;
+  private savedAt = 0;
+  /** Музыка сейчас приглушена (показ или пауза). */
+  private muffled = false;
 
   constructor() {
     super('Game');
   }
 
-  create(data: { levelId?: string; pitch?: boolean }): void {
+  create(data: GameData): void {
     this.ready = false;
     enter(this);
     this.speed = 1;
     this.view = { kind: 'idle' };
     this.pick = -1;
     this.code = false;
-    this.buyType = null;
     this.ending = 'none';
+    this.launch = null;
     this.telemetryOpen = false;
     this.pendingPath = { sig: '', spec: null };
-    this.countdown = null;
     this.solo = null;
-    this.teachCopies = 0;
     // Сцена переиспользуется при «заново»: всё, что помнит прошлый заход, сбрасываем здесь.
     this.ghostCell = null;
     this.stars = 0;
@@ -161,6 +166,7 @@ export class GameScene extends Phaser.Scene {
     this.numbers = new RobotNumbers();
     this.measured = false;
     this.fixed = false;
+    this.savedAt = 0;
 
     const stress = data?.levelId === STRESS_ID;
     this.frames = new FrameStats();
@@ -175,6 +181,8 @@ export class GameScene extends Phaser.Scene {
       go(this, 'LevelSelect');
       return;
     }
+    this.run = new RunKeeper(this.sim, level, stress || !!data?.pitch);
+    const note = this.run.restore(data);
     this.snap = this.sim.snapshot();
     this.cameras.main.setBackgroundColor(COLOR.page);
 
@@ -206,9 +214,9 @@ export class GameScene extends Phaser.Scene {
       pause: () => this.openPause(),
     });
     this.panel = new SidePanel(this, level, {
-      finishTeach: () => this.finishTeach(),
-      cancelTeach: () => this.cancelTeach(),
-      teachCopy: () => this.cycleTeachCopies(),
+      finishTeach: () => this.teachMode.finish(),
+      cancelTeach: () => this.teachMode.cancel(),
+      teachCopy: () => this.teachMode.cycleCopies(),
       pick: (i) => {
         this.pick = this.pick === i ? -1 : i;
       },
@@ -225,34 +233,57 @@ export class GameScene extends Phaser.Scene {
       ftcCode: () => this.openFtcCode(),
       sell: () => this.sellSelected(),
     }, (id) => this.numbers.of(id));
-    this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.toggleBuy(type) });
+    this.bottom = new BottomBar(this, level, { start: () => this.startLine(), buy: (type) => this.buy.toggle(type) });
     // Сообщения — под полосой легенды и строкой FPS, по центру карты.
     this.toasts = new Toasts(this, FIELD.x + FIELD.w / 2, STRIP.y + STRIP.h + 52, DEPTH.toast);
     this.telemetry = null;
     this.realSnap = null;
 
-    this.ghost = this.add.container(0, 0).setDepth(DEPTH.marker).setVisible(false);
+    this.buy = new BuyMode(this, this.field, this.sim, {
+      fail: (reason) => this.fail(reason),
+      bought: () => this.noteFix(),
+      started: () => this.setView({ kind: 'idle' }),
+    });
+    this.teachMode = new TeachMode(this, {
+      sim: this.sim,
+      field: this.field,
+      snap: () => this.snap,
+      fail: (reason) => this.fail(reason),
+      toast: (text, kind) => this.toasts.show(text, kind),
+      playSounds: (events) => this.playSounds(events),
+      began: () => {
+        this.buy.toggle(null);
+        // Во время показа нужна вся карта: панель телеметрии закрываем.
+        this.setTelemetry(false);
+        this.setView({ kind: 'teach' });
+      },
+      finished: (robotId) => {
+        this.view = { kind: 'robot', robotId };
+        this.pick = -1;
+      },
+      cancelled: () => this.setView({ kind: 'idle' }),
+      noteFix: () => this.noteFix(),
+    });
 
     const steps = level.tutorial ?? (levelIndex(level.id) === 0 ? FIRST_LEVEL_TUTORIAL : []);
     this.tutorial = new TutorialFlow(steps);
-    this.tutText = txt(this, 16, 34, '', { size: SIZE.body, wrap: 360, lineSpacing: 4 });
-    this.tutBg = this.add.image(0, 0, '__DEFAULT').setOrigin(0, 0);
-    const tutLabel = txt(this, 16, 14, t('tutorial.label'), { size: SIZE.micro, color: COLOR.dim, caps: true });
-    this.tutCard = this.add.container(FIELD.x + 16, 0, [this.tutBg, tutLabel, this.tutText]).setDepth(DEPTH.marker).setVisible(false);
-    // Стрелка показывает клетку на карте; кнопку («Готово», «Копия», «Старт») обучение обводит рамкой —
-    // стрелка над кнопкой налезала бы на соседнюю.
-    this.tutArrow = this.add.image(0, 0, 'tut_arrow').setDisplaySize(30, 36).setDepth(DEPTH.uiTop).setVisible(false);
-    this.tutFrame = this.add.graphics().setDepth(DEPTH.uiTop).setVisible(false);
+    this.overlay = new TutorialOverlay(this);
+    this.alarm = new StallAlarm(this, (id) => this.numbers.of(id), () => this.restartWithRobots());
 
     // Счётчик FPS (F, ?stress) — под полосой легенды слева, чтобы не закрывать её кнопки.
     this.fps = txt(this, STRIP.x, STRIP.y + STRIP.h + 6, '', { size: SIZE.small, color: COLOR.text }).setDepth(DEPTH.debug).setVisible(false);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onPointerDown(p));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onPointerMove(p));
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => this.onKey(ev));
+    onKeyDown(this, (ev: KeyboardEvent) => this.onKey(ev));
     // Tab не должен уводить фокус из игры.
     this.input.keyboard?.addCapture('TAB,SPACE,UP,DOWN,LEFT,RIGHT');
     audio.music('shift');
+    this.muffled = false;
+    audio.setMusicMuffled(false);
+    // Вкладку закрыли или спрятали — уровень сохраняется, «Продолжить» вернёт его.
+    this.run.attach(this, () => this.ending !== 'none');
+    this.events.once('shutdown', () => audio.setMusicMuffled(false));
     // Машины, которых на прошлых уровнях не было, один раз мигают сами — игрок сразу видит, что нового.
     const fresh = FieldStrip.fresh(level, levels());
     if (fresh.length > 0) this.time.delayedCall(600, () => fresh.forEach((k) => this.field.highlight(k, 2500)));
@@ -264,14 +295,18 @@ export class GameScene extends Phaser.Scene {
       this.fps.setVisible(true);
     } else if (data?.pitch) {
       // Демо для питча: слепой робот уже работает и промахивается, панель сразу показывает его программу.
-      const robot = preparePitch(this.sim);
-      if (robot !== null) this.view = { kind: 'robot', robotId: robot };
+      const pitch = preparePitch(this.sim);
+      if (pitch !== null) {
+        this.view = { kind: 'robot', robotId: pitch.robot };
+        this.run.startSave = pitch.startSave;
+      }
     }
     if (stress || data?.pitch) {
       // События подготовки (появление роботов, первые шаги) уже в прошлом — не озвучиваем их разом.
       this.sim.step(0);
       this.snap = this.sim.snapshot();
     }
+    if (note) this.toasts.show(note.text, note.kind);
     this.ready = true;
   }
 
@@ -294,7 +329,11 @@ export class GameScene extends Phaser.Scene {
         this.lastMiss = r ? { robotId: r.id, op: r.carrying ? 'put' : 'take' } : null;
       }
     }
-    if (events.length > 0) this.onEvents(events);
+    if (events.length > 0) {
+      this.alarm.feed(events);
+      this.onEvents(events);
+    }
+    this.alarm.update(s, this.ending !== 'none');
 
     this.syncView(s);
     const selectedRobot = this.view.kind === 'robot' ? this.view.robotId : null;
@@ -303,7 +342,7 @@ export class GameScene extends Phaser.Scene {
     // Робота, чью петлю смотрели отдельно, убрали — снова показываем все петли.
     if (this.solo !== null && (s.robots.length < 2 || !s.robots.some((r) => r.id === this.solo))) this.solo = null;
     const solo = s.mode === 'teach' ? null : this.solo;
-    this.field.markBottleneck(s.mode === 'running' ? bottleneckSpot(s) : null);
+    this.field.markBottleneck(s.mode === 'running' ? (this.alarm.mark(s) ?? bottleneckSpot(s)) : null);
     this.field.render(s, dt, { selectedRobot, selectedMachine, extraLoops: extra ? [extra] : undefined, solo });
     this.strip.update(s, this.solo, s.mode === 'teach' ? this.bannerW : 0);
     this.telemetry?.update(s, selectedRobot);
@@ -314,16 +353,25 @@ export class GameScene extends Phaser.Scene {
       view: this.view,
       pick: this.pick,
       code: this.code,
-      teachCopies: this.teachCopies,
-      maxTeachCopies: this.maxTeachCopies(s),
+      teachCopies: this.teachMode.copies,
+      maxTeachCopies: this.teachMode.maxCopies(s),
     });
-    this.bottom.update(s, this.buyType);
+    this.bottom.update(s, this.buy.type);
     // Призрак покупки перекрашиваем каждый кадр: мир меняется и без движения мыши (правка петли, энергия).
-    if (this.buyType) this.drawGhost();
-    const teach = s.mode === 'teach';
-    this.tint.setVisible(teach);
-    this.banner.setVisible(teach);
+    this.buy.draw();
+    this.tint.setVisible(teaching);
+    this.banner.setVisible(teaching);
+    this.teachMode.updateHover(s, this.ghostCell);
     this.updateTutorial(s);
+    // Показ: настоящий мир стоит — музыка глохнет. (Пауза глушит её сама, а после «Продолжить» здесь вернётся.)
+    if (teaching !== this.muffled) {
+      this.muffled = teaching;
+      audio.setMusicMuffled(teaching);
+    }
+    if (time - this.savedAt > AUTOSAVE_MS) {
+      this.savedAt = time;
+      this.run.save(this.ending !== 'none');
+    }
     if (this.fps.visible && time - this.fpsAt > 500) {
       this.fpsAt = time;
       const f = this.frames.summary();
@@ -366,15 +414,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const w = this.worldPoint(p);
+    // Карточка аварии лежит поверх карты: нажатие на неё (и на её кнопку) — не клик по полю.
+    if (this.alarm.contains(w.x, w.y)) return;
     if (!this.onField(w.x, w.y) || this.telemetry?.covers(w.y)) return;
     // Полоса над картой (легенда, выбор петель) — свои кнопки, это не клик по полю.
     if (w.y < STRIP.y + STRIP.h + 4) return;
     const s = this.snap;
-    if (s.mode === 'teach' || s.mode === 'won' || s.mode === 'lost') return;
+    if (s.mode === 'won' || s.mode === 'lost') return;
     const cell = this.field.cellAt(w.x, w.y);
-    if (this.buyType) {
-      if (p.rightButtonDown()) this.toggleBuy(null);
-      else if (cell) this.buyAt(this.buyType, cell.x, cell.y);
+    if (s.mode === 'teach') {
+      if (!p.rightButtonDown()) this.teachMode.click(cell);
+      return;
+    }
+    if (this.buy.type) {
+      if (p.rightButtonDown()) this.buy.toggle(null);
+      else if (cell) this.buy.buyAt(cell.x, cell.y);
       return;
     }
     if (p.rightButtonDown()) {
@@ -406,7 +460,7 @@ export class GameScene extends Phaser.Scene {
         this.setView({ kind: 'robot', robotId: owner.id });
         audio.play('click');
       } else {
-        this.beginTeach(dock);
+        this.teachMode.begin(dock);
       }
       return;
     }
@@ -423,20 +477,18 @@ export class GameScene extends Phaser.Scene {
     // Клетку под курсором помним всегда: включили покупку — призрак там, где мышь сейчас,
     // а не там, где она была, когда покупали в прошлый раз.
     const w = this.worldPoint(p);
-    this.ghostCell = this.onField(w.x, w.y) && !this.telemetry?.covers(w.y) ? this.field.cellAt(w.x, w.y) : null;
-    if (this.buyType) this.drawGhost();
+    this.ghostCell = this.onField(w.x, w.y) && !this.telemetry?.covers(w.y) && !this.alarm.contains(w.x, w.y) ? this.field.cellAt(w.x, w.y) : null;
+    this.buy.hover(this.ghostCell);
   }
 
   private onKey(ev: KeyboardEvent): void {
     // Сцена уже уходит (затемнение перехода) — клавиши не для неё. Сочетания с Ctrl, Cmd и Alt — браузеру и системе:
     // Cmd+M сворачивает окно и не должна заодно выкидывать к выбору уровней.
     if (!this.ready || leaving(this) || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-    // Горячие клавиши работают в игре всегда — и в плане, и во время показа, и пока идёт отсчёт:
-    // M — к выбору уровней (Esc — меню паузы, ниже). R на поле — копия робота со сдвигом (см. ниже),
-    // а «заново» — R в меню паузы и в итогах.
+    // M открывает паузу (там M — «К уровням»). Раньше M сразу выкидывала к уровням — и случайное нажатие
+    // рядом с N стирало показ и всю линию. Теперь выход — два нажатия, а запись показа при паузе сохраняется.
     if (!ev.repeat && ev.code === 'KeyM') {
-      if (this.snap.mode === 'teach') this.sim.cancelTeach();
-      go(this, 'LevelSelect', { levelId: this.level.id });
+      this.openPause();
       return;
     }
     if (this.ending !== 'none') {
@@ -445,22 +497,10 @@ export class GameScene extends Phaser.Scene {
     }
     const s = this.snap;
     if (s.mode === 'teach') {
-      const input = KEY_INPUT[ev.code];
-      if (input) {
-        ev.preventDefault();
-        if (ev.repeat) {
-          // Пробел при удержании ждёт подряд, стрелки повторяют шаг не чаще оператора.
-          if (input === 'act') return;
-          if (input !== 'wait' && this.time.now - this.lastRepeat < REPEAT_MS) return;
-        }
-        this.lastRepeat = this.time.now;
-        this.teach(input);
-      } else if (ev.code === 'KeyR') {
-        if (!ev.repeat) this.cycleTeachCopies();
-      } else if (ev.code === 'Enter' || ev.code === 'NumpadEnter') this.finishTeach();
       // Esc и во время показа открывает меню паузы. Запись при этом сохраняется: «Продолжить» — и показ идёт дальше.
-      // Отменить показ можно кнопкой «Отменить показ» на панели.
-      else if (ev.code === 'Escape') this.openPause();
+      // Отменить показ можно кнопкой «Отменить показ» на панели. Остальное — клавиши показа (ui/teachMode).
+      if (ev.code === 'Escape') this.openPause();
+      else this.teachMode.key(ev);
       return;
     }
     if (ev.repeat) return;
@@ -468,7 +508,7 @@ export class GameScene extends Phaser.Scene {
       case 'Escape':
         // Esc всегда сразу открывает паузу (шестерёнку). Выбор робота и режим покупки при этом снимаются,
         // чтобы после «Продолжить» игрок вернулся к чистому полю.
-        if (this.buyType) this.toggleBuy(null);
+        if (this.buy.type) this.buy.toggle(null);
         if (this.view.kind !== 'idle') this.setView({ kind: 'idle' });
         this.openPause();
         break;
@@ -508,7 +548,7 @@ export class GameScene extends Phaser.Scene {
         break;
       default:
         // Стрелки и E вне показа ничего не делают — подсказываем, с чего показ начинается.
-        if (KEY_INPUT[ev.code] && (s.mode === 'plan' || s.mode === 'running')) this.toasts.show(t('teach.needDock'), 'info');
+        if (TEACH_KEYS[ev.code] && (s.mode === 'plan' || s.mode === 'running')) this.toasts.show(t('teach.needDock'), 'info');
         break;
     }
   }
@@ -532,7 +572,7 @@ export class GameScene extends Phaser.Scene {
     const free = this.level.docks.findIndex((_, i) => !s.robots.some((r) => r.dock === i));
     const near = this.selectedRobot() ?? s.robots[s.robots.length - 1] ?? null;
     const dock = free >= 0 ? free : (near?.dock ?? 0);
-    this.beginTeach(dock);
+    this.teachMode.begin(dock);
     if (s.robots.length > 0 && this.sim.snapshot().mode === 'teach') this.toasts.show(t('robot.routeStart', { dock: dock + 1 }), 'info');
   }
 
@@ -542,7 +582,15 @@ export class GameScene extends Phaser.Scene {
     if (!r || this.scene.isActive('Code')) return;
     const robot = this.numbers.of(r.id);
     const lines = toFtcJava(r.pendingProgram ?? r.program, { robot, dock: r.dock + 1 });
-    this.scene.launch('Code', { lines, robot });
+    // Две вкладки: OpMode из показа и класс робота, который он вызывает, — вместе их можно собрать в FTC SDK.
+    const data: CodeData = {
+      robot,
+      files: [
+        { name: `CommitDeployRobot${robot}.java`, lines, sub: t('ftc.sub') },
+        { name: 'DeployBot.java', lines: deployBotJava(), sub: t('ftc.botSub') },
+      ],
+    };
+    this.scene.launch('Code', data);
     this.scene.pause();
   }
 
@@ -580,94 +628,7 @@ export class GameScene extends Phaser.Scene {
     this.speed = speed;
   }
 
-  // ---------- показ (репетиция) ----------
-
-  private beginTeach(dock: number, replace?: number): void {
-    const r = this.sim.beginTeach(dock, replace);
-    if (!r.ok) {
-      this.fail(r.reason);
-      return;
-    }
-    this.toggleBuy(null);
-    this.teachCopies = 0;
-    this.teachReplace = replace !== undefined;
-    // Во время показа нужна вся карта: панель телеметрии закрываем.
-    this.setTelemetry(false);
-    this.setView({ kind: 'teach' });
-    audio.play('click');
-  }
-
-  private teach(input: TeachInput): void {
-    const r = this.sim.teachInput(input);
-    if (!r.ok) {
-      if (r.reason) this.fail(r.reason);
-      return;
-    }
-    this.field.play(r.events);
-    this.playSounds(r.events);
-    if (input !== 'act') audio.play('step', { rate: input === 'wait' ? 0.8 : 1 });
-  }
-
-  private finishTeach(): void {
-    if (!this.sim.canFinishTeach()) {
-      this.toasts.show(t('teach.returnHint'), 'info');
-      audio.play('error');
-      return;
-    }
-    const r = this.sim.finishTeach();
-    if (!r.ok) {
-      this.fail(r.reason);
-      return;
-    }
-    this.view = { kind: 'robot', robotId: r.id };
-    this.pick = -1;
-    this.noteFix();
-    // Копии, заказанные клавишей R во время показа: встают на тот же док, сдвиг делит круг поровну.
-    const copies = this.teachCopies;
-    this.teachCopies = 0;
-    if (copies > 0) {
-      const robot = this.sim.snapshot().robots.find((x) => x.id === r.id);
-      const steps = robot ? programSteps(robot.pendingProgram ?? robot.program) : 0;
-      let made = 0;
-      for (let i = 1; i <= copies; i++) {
-        const delay = Math.max(1, Math.round((steps * i) / (copies + 1)));
-        const res = this.sim.copyRobot(r.id, delay);
-        if (!res.ok) {
-          this.fail(res.reason);
-          break;
-        }
-        made++;
-      }
-      if (made > 0) this.toasts.show(t('robot.copiedOnFinish', { n: made }), 'ok');
-    }
-  }
-
-  private cancelTeach(): void {
-    this.sim.cancelTeach();
-    this.teachCopies = 0;
-    this.setView({ kind: 'idle' });
-    audio.play('click');
-  }
-
-  /** Сколько копий со сдвигом хватит энергии поставить вместе с роботом из показа. */
-  private maxTeachCopies(s: SimSnapshot): number {
-    if (s.mode !== 'teach' || s.robotCost <= 0) return s.mode === 'teach' ? 3 : 0;
-    // Перезапись робота новую энергию не тратит: он уже стоит на доке.
-    const free = s.energyLeft - (this.teachReplace ? 0 : s.robotCost);
-    return Math.max(0, Math.min(3, Math.floor(free / s.robotCost)));
-  }
-
-  /** R в показе: ещё одна копия со сдвигом (0 → 1 → 2 … → 0). Не хватает энергии — подсказка. */
-  private cycleTeachCopies(): void {
-    const max = this.maxTeachCopies(this.snap);
-    if (max === 0) {
-      this.teachCopies = 0;
-      this.fail('noEnergy');
-      return;
-    }
-    this.teachCopies = this.teachCopies >= max ? 0 : this.teachCopies + 1;
-    audio.play('click');
-  }
+  // ---------- показ (репетиция): ui/teachMode ----------
 
   /** R вне показа: копия выбранного робота, а если никто не выбран — последнего поставленного. */
   private copyHotkey(): void {
@@ -735,7 +696,7 @@ export class GameScene extends Phaser.Scene {
 
   private rewriteSelected(): void {
     const r = this.selectedRobot();
-    if (r) this.beginTeach(r.dock, r.id);
+    if (r) this.teachMode.begin(r.dock, r.id);
   }
 
   private removeSelected(): void {
@@ -763,55 +724,17 @@ export class GameScene extends Phaser.Scene {
     return this.pendingPath.spec;
   }
 
-  // ---------- покупки ----------
-
-  private toggleBuy(type: MachineType | null): void {
-    this.buyType = type === null || this.buyType === type ? null : type;
-    this.ghost.removeAll(true);
-    if (this.buyType) {
-      const k = this.field.scale;
-      this.ghost.add([
-        this.add.image(0, 0, tileKey(this.buyType)).setDisplaySize(56 * k, 56 * k),
-        this.add.image(0, -3 * k, iconKey(this.buyType)).setDisplaySize(34 * k, 34 * k),
-      ]);
-      this.setView({ kind: 'idle' });
-    }
-    this.drawGhost();
-  }
-
-  private drawGhost(): void {
-    const cell = this.ghostCell;
-    if (!this.buyType || !cell) {
-      this.ghost.setVisible(false);
-      return;
-    }
-    const ok = this.sim.canBuy(this.buyType, cell.x, cell.y).ok;
-    const c = this.field.screenCenter(cell.x, cell.y);
-    this.ghost.setPosition(c.x, c.y).setVisible(true).setAlpha(0.75);
-    for (const o of this.ghost.list) (o as Phaser.GameObjects.Image).setTint(ok ? COLOR.ok : COLOR.miss);
-  }
-
-  private buyAt(type: MachineType, x: number, y: number): void {
-    const r = this.sim.buy(type, x, y);
-    if (!r.ok) {
-      this.fail(r.reason);
-      return;
-    }
-    this.noteFix();
-    this.toggleBuy(null);
-  }
+  // ---------- покупки (ui/buyMode) ----------
 
   private sell(machineId: number): void {
-    const r = this.sim.sell(machineId);
-    if (!r.ok) this.fail(r.reason);
-    else this.setView({ kind: 'idle' });
+    if (this.buy.sell(machineId)) this.setView({ kind: 'idle' });
   }
 
   private sellSelected(): void {
     if (this.view.kind === 'machine') this.sell(this.view.machineId);
   }
 
-  // ---------- старт, события, финал ----------
+  // ---------- старт, авария, сохранение ----------
 
   private startLine(): void {
     if (this.snap.mode !== 'plan') return;
@@ -819,10 +742,27 @@ export class GameScene extends Phaser.Scene {
       this.toasts.show(t('bottom.noRobots'), 'info');
       return;
     }
+    // Мир в момент старта: с него начнётся «Заново с роботами».
+    this.run.markStart();
+    this.alarm.reset();
     this.sim.start();
-    this.toggleBuy(null);
+    this.buy.toggle(null);
     audio.play('countdown');
+    this.run.save(false);
   }
+
+  /** Линия для «Заново с роботами»: мир на момент «Старт» и программы роботов сейчас. */
+  replayData(): Replay | null {
+    return this.run.replay();
+  }
+
+  /** «Заново с роботами» с карточки аварии: время сначала, роботы и программы — те же. */
+  private restartWithRobots(): void {
+    const replay = this.replayData();
+    go(this, 'Game', replay ? { levelId: this.level.id, replay } : { levelId: this.level.id });
+  }
+
+  // ---------- события и финал ----------
 
   private onEvents(events: readonly SimEvent[]): void {
     this.field.play(events);
@@ -856,73 +796,25 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /**
-   * Отсчёт T−3, T−2, T−1 и «Пуск!», вспышка зажигания, ракета уходит вверх с дымом и тряской.
-   * Итоги — через полсекунды после того, как ракета скрылась: игрок успевает увидеть пустой стол в дыму.
-   */
+  /** План выполнен: отсчёт, старт ракеты и итоги (render/launchSequence). */
   private beginLaunch(): void {
     if (this.ending !== 'none') return;
     this.ending = 'launch';
     this.view = { kind: 'idle' };
     this.setTelemetry(false);
-    const c = { x: FIELD.x + FIELD.w / 2, y: FIELD.y + FIELD.h / 2 };
-    this.countdown = txt(this, c.x, c.y, '', { size: 120, bold: true, ox: 0.5, oy: 0.5 }).setDepth(DEPTH.modal);
-    const pop = (label: string, color: number): void => {
-      if (!this.countdown) return;
-      setText(this.countdown, label);
-      setColor(this.countdown, color);
-      this.countdown.setScale(1.4).setAlpha(0.15);
-      this.tweens.add({ targets: this.countdown, scale: 1, alpha: 1, duration: 280, ease: 'Back.easeOut' });
-    };
-    let n = 3;
-    pop(t('launch.t', { n }), COLOR.text);
-    audio.play('countdown');
-    this.time.addEvent({
-      delay: 700,
-      repeat: 2,
-      callback: () => {
-        n--;
-        if (!this.countdown) return;
-        if (n > 0) {
-          pop(t('launch.t', { n }), COLOR.text);
-          audio.play('countdown');
-          return;
-        }
-        pop(t('launch.go'), COLOR.accent);
-        const label = this.countdown;
-        this.tweens.add({
-          targets: label,
-          alpha: 0,
-          delay: 650,
-          duration: 450,
-          onComplete: () => {
-            label.destroy();
-            if (this.countdown === label) this.countdown = null;
-          },
-        });
-        audio.play('launch');
-        // Вспышка зажигания на всё поле.
-        const flash = this.add.rectangle(FIELD.x, FIELD.y, FIELD.w, FIELD.h, COLOR.white, 0.45).setOrigin(0, 0).setDepth(DEPTH.fx);
-        this.tweens.add({ targets: flash, alpha: 0, duration: 420, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
-        this.field.launchRocket(() => this.time.delayedCall(550, () => this.showResults(true)));
-      },
-    });
+    this.alarm.card.hide();
+    this.launch = new LaunchSequence(this, this.field, () => this.showResults(true));
+    this.launch.start();
   }
 
   private skipEnding(): void {
-    if (this.ending === 'launch') {
-      this.countdown?.destroy();
-      this.countdown = null;
-      this.field.skipLaunch();
-      // Тряску камеры останавливаем: на паузе под итогами поле иначе так и застыло бы со сдвигом.
-      this.cameras.main.resetFX();
-      this.showResults(true);
-    }
+    if (this.ending === 'launch') this.launch?.skip();
   }
 
   private showResults(won: boolean): void {
     if (this.scene.isActive('Results')) return;
     this.ending = 'done';
+    this.alarm.card.hide();
     const s = this.sim.snapshot();
     const endless = !!this.level.endless;
     const spent = s.energy - s.energyLeft;
@@ -930,6 +822,8 @@ export class GameScene extends Phaser.Scene {
     const best = passed
       ? store.saveResult(this.level.id, { stars: won ? s.stars : 0, timeLeft: s.timeLeft, energySpent: spent, misses: s.misses, launches: s.launches })
       : false;
+    // Уровень закончен — его автосохранение больше не нужно.
+    this.run.finish();
     // Третье поражение подряд на этом уровне — итоги предложат подсказку.
     let offerHint = false;
     if (passed) hints.won(this.level.id);
@@ -937,6 +831,8 @@ export class GameScene extends Phaser.Scene {
     // Think Award: измерил → исправил на ходу → линия справилась. Награда запоминается за уровень.
     const thinkAward = passed && this.measured && this.fixed;
     if (thinkAward) store.award(this.level.id);
+    // Линия встала — в итогах именно эта причина, а не общий совет узкого места.
+    const stall = won ? null : this.alarm.texts();
     const data: ResultsData = {
       levelId: this.level.id,
       won,
@@ -955,9 +851,12 @@ export class GameScene extends Phaser.Scene {
       launches: s.launches,
       best,
       bottleneckKey: s.bottleneck ? bottleneckHintKey(s.bottleneck, this.level, s) : null,
+      cause: stall ? `${stall.cause} ${stall.fix}` : null,
+      replay: this.replayData(),
       offerHint,
       thinkAward,
     };
+    audio.music(null);
     audio.play(won ? 'win' : 'lose');
     this.scene.launch('Results', data);
     this.scene.pause();
@@ -965,7 +864,10 @@ export class GameScene extends Phaser.Scene {
 
   private openPause(): void {
     if (this.ending !== 'none' || this.scene.isActive('Pause')) return;
-    this.scene.launch('Pause', { levelId: this.level.id });
+    this.run.save(false);
+    this.muffled = true;
+    audio.setMusicMuffled(true);
+    this.scene.launch('Pause', { levelId: this.level.id, replay: this.replayData() });
     this.scene.pause();
   }
 
@@ -986,57 +888,26 @@ export class GameScene extends Phaser.Scene {
     };
     this.tutorial.update(ctx);
     const step = this.tutorial.current();
-    const show = !!step && this.tutorial.visible(ctx) && this.ending === 'none';
-    this.tutCard.setVisible(show);
-    if (!show || !step) {
-      this.tutArrow.setVisible(false);
-      this.tutFrame.setVisible(false);
-      return;
-    }
-    const text = t(this.tutorial.textKey(ctx) ?? step.key);
-    if (this.tutText.text !== text) {
-      this.tutText.setText(text);
-      const w = Math.ceil(Math.max(this.tutText.width, 120) + 32);
-      const h = Math.ceil(this.tutText.height + 50);
-      this.tutBg.setTexture(plateKey(this, w, h, { fill: COLOR.chrome, stroke: COLOR.rule })).setDisplaySize(w, h);
-      this.tutCard.setY(BOTTOM.y - 16 - h);
-    }
-    const target = this.tutorial.target(ctx);
-    let at: { x: number; y: number } | null = null;
-    let box: { x: number; y: number; w: number; h: number } | null = null;
-    const above = (x: number, y: number): { x: number; y: number } => {
+    // Авария важнее обучения: совет «поставь датчик» при взаимной блокировке уже не поможет.
+    const show = !!step && this.tutorial.visible(ctx) && this.ending === 'none' && !this.alarm.visible;
+    this.overlay.update(this.tutorial, ctx, show, this.anchors, s, this.level);
+  }
+
+  /** Где на экране цели обучения: клетки и роботы карты, блоки и кнопки панелей. */
+  private readonly anchors: TutorialAnchors = {
+    aboveCell: (x, y) => {
       const c = this.field.screenCenter(x, y);
       return { x: c.x, y: c.y - TILE * 0.69 * this.field.scale };
-    };
-    if (target?.kind === 'cell') {
-      at = above(target.x, target.y);
-    } else if (target?.kind === 'robot') {
-      const c = this.field.robotScreen(target.id);
-      if (c) at = { x: c.x, y: c.y - TILE * 0.69 * this.field.scale };
-    } else if (target?.kind === 'block') {
-      box = this.panel.blockAnchor(target.index);
-    } else if (target?.kind === 'ui') {
-      if (target.id === 'start') box = this.bottom.anchor();
-      else if (target.id === 'telemetry') box = this.bottom.telemetryAnchor();
-      else box = this.panel.anchor(target.id);
-      // Кнопки копии не видно (робот не выбран) — стрелка показывает на робота: R или клик по нему.
-      if (!box && target.id === 'copy') {
-        const r = s.robots[s.robots.length - 1];
-        if (r) at = above(this.level.docks[r.dock].x, this.level.docks[r.dock].y);
-      }
-      // Кнопки «Свой путь (N)» не видно — стрелка на свободный док: нажать на него тоже значит «новый маршрут».
-      if (!box && target.id === 'route') {
-        const free = this.level.docks.findIndex((_, i) => !s.robots.some((r) => r.dock === i));
-        if (free >= 0) at = above(this.level.docks[free].x, this.level.docks[free].y);
-      }
-    }
-    this.tutArrow.setVisible(at !== null);
-    if (at) this.tutArrow.setPosition(at.x, at.y - 18 + Math.sin(this.time.now / 180) * 5);
-    // Рамка вокруг нужной кнопки: светлая, мягко пульсирует, на соседние кнопки не залезает.
-    this.tutFrame.setVisible(box !== null);
-    if (box) {
-      const pulse = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(this.time.now / 220));
-      this.tutFrame.clear().lineStyle(2, COLOR.text, pulse).strokeRoundedRect(box.x - box.w / 2 - 3, box.y - box.h / 2 - 3, box.w + 6, box.h + 6, 6);
-    }
-  }
+    },
+    aboveRobot: (id) => {
+      const c = this.field.robotScreen(id);
+      return c ? { x: c.x, y: c.y - TILE * 0.69 * this.field.scale } : null;
+    },
+    block: (index) => this.panel.blockAnchor(index),
+    ui: (id) => {
+      if (id === 'start') return this.bottom.anchor();
+      if (id === 'telemetry') return this.bottom.telemetryAnchor();
+      return this.panel.anchor(id);
+    },
+  };
 }

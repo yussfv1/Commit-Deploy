@@ -7,6 +7,7 @@ import { store } from '../ui/storage';
 import type { Settings } from '../ui/storage';
 import { COLOR, SIZE, THEME } from '../ui/theme';
 import { Button, Slider, dimmer, plate, rule, setText, txt } from '../ui/widgets';
+import { onKeyDown } from '../ui/keys';
 import { enter } from './flow';
 
 const VOLUMES = [
@@ -160,7 +161,7 @@ export class SettingsScene extends Phaser.Scene {
       onClick: () => this.close(),
     });
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (ev.repeat) return;
       if (ev.code === 'Escape' || ev.code === 'Enter' || ev.code === 'NumpadEnter') this.close();
     });

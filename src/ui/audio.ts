@@ -1,5 +1,7 @@
 // Звук игры на Web Audio. Если роль C положила файл (public/assets/sfx/<имя>.wav или .mp3) — играет он,
 // если файла нет — тот же звук синтезируется кодом. Игра звучит сразу, а файлы подменяют синтез без правок кода.
+// Музыка так же: файла music/<имя>.mp3 нет — её играет код (src/ui/music.ts).
+import { MusicPlayer } from './music';
 import { Throttle } from './throttle';
 
 export const SFX = [
@@ -17,6 +19,7 @@ export const SFX = [
   'launch',
   'win',
   'lose',
+  'alarm',
 ] as const;
 export type SfxName = (typeof SFX)[number];
 
@@ -117,6 +120,15 @@ const RECIPES: Record<SfxName, Recipe> = {
       { wave: 'triangle', from: C4, at: 0.34, dur: 0.55, gain: 0.15 },
     ],
   },
+  // Авария «линия встала»: два двойных сигнала, как у пульта оператора.
+  alarm: {
+    tones: [
+      { wave: 'square', from: 880, dur: 0.12, gain: 0.06 },
+      { wave: 'square', from: 660, at: 0.15, dur: 0.12, gain: 0.06 },
+      { wave: 'square', from: 880, at: 0.42, dur: 0.12, gain: 0.06 },
+      { wave: 'square', from: 660, at: 0.57, dur: 0.12, gain: 0.06 },
+    ],
+  },
 };
 
 /** Минимальная пауза между одинаковыми звуками, мс. */
@@ -129,6 +141,7 @@ const GAPS: Record<string, number> = {
   produce: 60,
   deliver: 50,
   click: 20,
+  alarm: 1500,
 };
 
 /** Пентатоника для бипа шага: у каждого дока своя нота, вместе роботы звучат как мелодия, а не как шум. */
@@ -154,6 +167,9 @@ export class AudioEngine {
   private voices = 0;
   private wanted: MusicName | null = null;
   private playing: { name: MusicName; source: AudioBufferSourceNode; gain: GainNode } | null = null;
+  /** Музыка кодом — когда файла музыки нет (так сейчас всегда). */
+  private synthMusic: MusicPlayer | null = null;
+  private muffled = false;
 
   /** Положить загруженный звуковой файл. Ключи: sfx_<имя> и music_<имя>. */
   addFile(key: string, data: ArrayBuffer): void {
@@ -221,6 +237,17 @@ export class AudioEngine {
     this.syncMusic();
   }
 
+  /** Показ: настоящий мир стоит — музыка глохнет фильтром. */
+  setMusicMuffled(on: boolean): void {
+    this.muffled = on;
+    this.synthMusic?.setMuffled(on);
+  }
+
+  /** Отсчёт и старт ракеты: музыка затихает на это время. */
+  duckMusic(seconds: number): void {
+    this.synthMusic?.duck(seconds);
+  }
+
   private ensure(): AudioContext | null {
     if (this.ctx || this.failed) return this.ctx;
     try {
@@ -242,6 +269,8 @@ export class AudioEngine {
       const data = noise.getChannelData(0);
       for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
       this.noiseBuffer = noise;
+      this.synthMusic = new MusicPlayer(ctx, this.musicGain, noise);
+      this.synthMusic.setMuffled(this.muffled);
       this.ctx = ctx;
       this.applyVolumes();
       for (const key of this.raw.keys()) void this.decode(key);
@@ -343,9 +372,18 @@ export class AudioEngine {
       old.gain.gain.linearRampToValueAtTime(0.0001, now + 0.4);
       old.source.stop(now + 0.45);
     }
-    if (this.playing || !this.wanted) return;
+    if (!this.wanted) {
+      this.synthMusic?.stop();
+      return;
+    }
+    if (this.playing) return;
     const buffer = this.buffers.get(`music_${this.wanted}`);
-    if (!buffer) return;
+    if (!buffer) {
+      // Файла нет — музыку играет код.
+      this.synthMusic?.play(this.wanted);
+      return;
+    }
+    this.synthMusic?.stop(0.3);
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     source.buffer = buffer;

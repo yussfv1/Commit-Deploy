@@ -34,3 +34,25 @@ describe('код для настоящего робота (FTC, Java)', () => {
     expect(lines.some((l) => l.includes('обратная связь'))).toBe(true);
   });
 });
+
+describe('DeployBot.java — класс робота для OpMode', () => {
+  it('в нём есть всё, что вызывает OpMode: drive по сторонам света, grab, release, machineReady', async () => {
+    const { deployBotJava, toFtcJava: opMode } = await import('../ftcCode');
+    const bot = deployBotJava().join('\n');
+    expect(bot).toContain('public class DeployBot {');
+    expect(bot).toContain('public enum Dir { NORTH, EAST, SOUTH, WEST }');
+    for (const m of ['public void drive(Dir dir, int tiles)', 'public void grab()', 'public void release()', 'public boolean machineReady()']) {
+      expect(bot).toContain(m);
+    }
+    // OpMode создаёт робота так, как ждёт конструктор.
+    expect(bot).toContain('public DeployBot(LinearOpMode op)');
+    expect(opMode(prog('L T R1 P R'), { robot: 1, dock: 1 }).join('\n')).toContain('new DeployBot(this)');
+    expect(bot.split('{').length).toBe(bot.split('}').length);
+    expect(bot.split('(').length).toBe(bot.split(')').length);
+  });
+
+  it('импульсов на плитку — как в Java: 609,6 мм / (π · 96 мм) · 537,7', async () => {
+    const { TICKS_PER_TILE } = await import('../ftcCode');
+    expect(TICKS_PER_TILE).toBe(1087);
+  });
+});

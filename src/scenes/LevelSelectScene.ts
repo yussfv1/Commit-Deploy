@@ -10,6 +10,7 @@ import { store } from '../ui/storage';
 import { COLOR, SIZE } from '../ui/theme';
 import { Button, rule, setColor, setText, txt } from '../ui/widgets';
 import type { LevelData } from '../types';
+import { onKeyDown } from '../ui/keys';
 import { enter, go, leaving } from './flow';
 
 const X0 = 88;
@@ -32,6 +33,9 @@ export class LevelSelectScene extends Phaser.Scene {
   private name!: Phaser.GameObjects.Text;
   /** Одна строка «чему учит уровень» под названием. */
   private desc!: Phaser.GameObjects.Text;
+  /** «Начать» или «Продолжить» (у выбранного уровня есть автосохранение) и «Начать заново» под ней. */
+  private startButton!: Button;
+  private freshButton!: Button;
 
   constructor() {
     super('LevelSelect');
@@ -79,11 +83,18 @@ export class LevelSelectScene extends Phaser.Scene {
       });
     }
 
+    // Есть незаконченный уровень (закрыли вкладку, перезагрузили страницу) — главная кнопка его продолжает.
+    const saved = (): boolean => store.run()?.levelId === all[this.selected]?.id;
     const start = (): void => {
+      const level = all[this.selected];
+      if (level) go(this, 'Game', saved() ? { levelId: level.id, resume: true } : { levelId: level.id });
+    };
+    const fresh = (): void => {
       const level = all[this.selected];
       if (level) go(this, 'Game', { levelId: level.id });
     };
-    new Button(this, W - X0 - 130, 446, { w: 260, h: 56, label: t('levels.start'), kind: 'primary', size: SIZE.title, onClick: start });
+    this.startButton = new Button(this, W - X0 - 130, 446, { w: 260, h: 56, label: t('levels.start'), kind: 'primary', size: SIZE.title, onClick: start });
+    this.freshButton = new Button(this, W - X0 - 130, 500, { w: 260, h: 34, label: t('levels.restart'), kind: 'quiet', size: SIZE.small, onClick: fresh });
 
     rule(this, X0, H - 72, W - X0 * 2);
     new Button(this, X0 + 80, H - 44, {
@@ -96,11 +107,13 @@ export class LevelSelectScene extends Phaser.Scene {
       onClick: () => go(this, 'Menu'),
     });
 
+    // Сначала — уровень, откуда пришли; иначе незаконченный (его можно продолжить); иначе первый непройденный.
     const fromId = data?.levelId ? all.findIndex((l) => l.id === data.levelId) : -1;
+    const runId = all.findIndex((l) => l.id === store.run()?.levelId);
     const firstOpen = all.findIndex((l) => store.record(l.id) === null);
-    this.select(fromId >= 0 ? fromId : Math.max(0, firstOpen));
+    this.select(fromId >= 0 ? fromId : runId >= 0 ? runId : Math.max(0, firstOpen));
 
-    this.input.keyboard?.on('keydown', (ev: KeyboardEvent) => {
+    onKeyDown(this, (ev: KeyboardEvent) => {
       if (leaving(this)) return;
       if (ev.code === 'ArrowLeft' || ev.code === 'KeyA') this.select(this.selected - 1, true);
       else if (ev.code === 'ArrowRight' || ev.code === 'KeyD') this.select(this.selected + 1, true);
@@ -137,7 +150,7 @@ export class LevelSelectScene extends Phaser.Scene {
     const zone = this.add.zone(x, LINE_Y + 40, 200, 150).setInteractive({ useHandCursor: true });
     zone.on('pointerup', () => {
       if (this.selected === i) {
-        go(this, 'Game', { levelId: level.id });
+        go(this, 'Game', store.run()?.levelId === level.id ? { levelId: level.id, resume: true } : { levelId: level.id });
         return;
       }
       audio.play('click');
@@ -161,6 +174,9 @@ export class LevelSelectScene extends Phaser.Scene {
       setColor(s.title, k === i ? COLOR.text : COLOR.dim);
     });
     this.describe(all[i], i);
+    const saved = store.run()?.levelId === all[i].id;
+    this.startButton.setLabel(t(saved ? 'levels.continue' : 'levels.start'));
+    this.freshButton.setVisible(saved);
   }
 
   private describe(level: LevelData, index: number): void {

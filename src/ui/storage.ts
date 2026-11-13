@@ -38,11 +38,25 @@ export interface Store {
   award(levelId: string): void;
   hasAward(levelId: string): boolean;
   reset(): void;
+  /** Незаконченный уровень (автосохранение): игра предложит «Продолжить» на этом уровне. */
+  run(): SavedRun | null;
+  saveRun(run: SavedRun): void;
+  clearRun(): void;
+}
+
+/** Автосохранение уровня: мир целиком (ISimulation.serialize) и мир в момент «Старт» — для «Заново с роботами». */
+export interface SavedRun {
+  levelId: string;
+  save: string;
+  startSave: string | null;
+  /** Когда сохранено (Date.now()). */
+  at: number;
 }
 
 const SETTINGS_KEY = 'tminus.settings.v1';
 const PROGRESS_KEY = 'tminus.progress.v1';
 const AWARDS_KEY = 'tminus.awards.v1';
+const RUN_KEY = 'tminus.run.v1';
 const DEFAULTS: Settings = { master: 0.8, music: 0.5, sfx: 0.8, lang: 'ru', theme: 'dark' };
 const themeName = (v: unknown): ThemeName => (v === 'light' ? 'light' : 'dark');
 
@@ -99,6 +113,9 @@ export function createStore(backend: StorageLike | null): Store {
     }
   }
 
+  const savedRun = read(backend, RUN_KEY);
+  let run: SavedRun | null = isSavedRun(savedRun) ? savedRun : null;
+
   return {
     settings: () => ({ ...settings }),
     setSettings(patch) {
@@ -135,15 +152,42 @@ export function createStore(backend: StorageLike | null): Store {
     reset() {
       progress = {};
       awards = new Set();
+      run = null;
       if (!backend) return;
       try {
         backend.removeItem(PROGRESS_KEY);
         backend.removeItem(AWARDS_KEY);
+        backend.removeItem(RUN_KEY);
       } catch {
         // Нечего удалять, если хранилище недоступно.
       }
     },
+    run: () => (run ? { ...run } : null),
+    saveRun(next) {
+      run = { ...next };
+      write(backend, RUN_KEY, run);
+    },
+    clearRun() {
+      if (run === null) return;
+      run = null;
+      if (!backend) return;
+      try {
+        backend.removeItem(RUN_KEY);
+      } catch {
+        // Хранилище недоступно — сохранение и так живёт только в памяти.
+      }
+    },
   };
+}
+
+function isSavedRun(v: unknown): v is SavedRun {
+  return (
+    isRecord(v) &&
+    typeof v.levelId === 'string' &&
+    typeof v.save === 'string' &&
+    (v.startSave === null || typeof v.startSave === 'string') &&
+    typeof v.at === 'number'
+  );
 }
 
 /** localStorage браузера или null, если им нельзя пользоваться. */

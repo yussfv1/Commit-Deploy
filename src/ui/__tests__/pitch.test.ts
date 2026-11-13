@@ -13,8 +13,14 @@ describe('демо для питча', () => {
     if (!level) return;
     const sim = new Simulation();
     sim.loadLevel(level, machineDefs());
-    const id = preparePitch(sim);
-    expect(id).not.toBeNull();
+    const setup = preparePitch(sim);
+    expect(setup).not.toBeNull();
+    const id = setup?.robot ?? -1;
+    // Мир на момент старта сохранён для «Заново с роботами»: в нём те же два робота, линия ещё не запущена.
+    const start = new Simulation();
+    start.deserialize(setup?.startSave ?? '');
+    expect(start.snapshot()).toMatchObject({ mode: 'plan' });
+    expect(start.snapshot().robots).toHaveLength(2);
     const s = sim.snapshot();
     expect(s.mode).toBe('running');
     expect(s.robots).toHaveLength(2);
@@ -29,7 +35,7 @@ describe('демо для питча', () => {
     if (!level) return;
     const sim = new Simulation();
     sim.loadLevel(level, machineDefs());
-    const id = preparePitch(sim) ?? -1;
+    const id = preparePitch(sim)?.robot ?? -1;
     const robot = sim.snapshot().robots.find((r) => r.id === id);
     expect(robot).toBeDefined();
     if (!robot) return;

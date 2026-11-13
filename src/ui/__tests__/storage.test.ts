@@ -96,3 +96,33 @@ describe('прогресс', () => {
     expect(createStore(m).record('level1')).toBeNull();
   });
 });
+
+describe('незаконченный уровень (Продолжить)', () => {
+  const run = { levelId: 'level4', save: '{"version":1}', startSave: null, at: 1700000000000 };
+
+  it('сохраняется и читается в новой сессии', () => {
+    const m = memory();
+    createStore(m).saveRun(run);
+    expect(createStore(m).run()).toEqual(run);
+  });
+
+  it('стирается после итогов и при сбросе прогресса', () => {
+    const m = memory();
+    const s = createStore(m);
+    s.saveRun(run);
+    s.clearRun();
+    expect(createStore(m).run()).toBeNull();
+    s.saveRun(run);
+    s.reset();
+    expect(createStore(m).run()).toBeNull();
+  });
+
+  it('испорченное сохранение не считается, хранилище недоступно — живёт в памяти', () => {
+    const m = memory();
+    m.setItem('tminus.run.v1', '{"levelId":4}');
+    expect(createStore(m).run()).toBeNull();
+    const s = createStore(broken);
+    s.saveRun(run);
+    expect(s.run()).toEqual(run);
+  });
+});

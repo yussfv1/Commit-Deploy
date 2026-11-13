@@ -108,11 +108,11 @@ export const ITEM_COLOR: Record<ItemType, number> = {
 export const MACHINE_TYPES: readonly MachineType[] = ['depot', 'tank', 'press', 'assembler', 'pad', 'shelf'];
 
 /**
- * Шрифт: файл роли C — PT Sans (OFL) из public/assets/fonts, тот же, что в презентации: прямые чёткие штрихи,
+ * Шрифт: файл роли C — CD Sans (PT Sans без устаревшей таблицы kern, OFL) из public/assets/fonts, как в презентации: прямые чёткие штрихи,
  * сделан для русской и казахской кириллицы. Если файл не загрузился — Bahnschrift из Windows, на Mac — PT Sans.
  */
 export const FONT = "TMinus, Bahnschrift, 'PT Sans', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-/** Толщина букв: у PT Sans два настоящих начертания — обычное 400 и жирное 700 (отдельные файлы). */
+/** Толщина букв: у CD Sans (PT Sans) два настоящих начертания — обычное 400 и жирное 700 (отдельные файлы). */
 export const WEIGHT = { normal: '400', bold: '700' } as const;
 /**
  * Шрифт для кода программы робота и клавиш. Раньше был моноширинный; теперь и тут PT Sans (TMinus),
